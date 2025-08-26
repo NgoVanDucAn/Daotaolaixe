@@ -401,7 +401,7 @@ class CalendarController extends Controller
             'calendars.call' => 'admin.calendars.call',
             default => 'admin.calendars.index',
         };
-        // dd($paginatedCalendars);
+//        dd($paginatedCalendars);
         return view($viewName, compact('teachers', 'studentAlls', 'paginatedCalendars', 'calendarTypes', 'type', 'statusConfig', 'stadiums', 'dateBreadscrum', 'totalStudentCount'));
     }
 

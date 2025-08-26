@@ -203,6 +203,7 @@
 
                                     @php
                                         $courseStudents = $calendar->courseStudents;
+                                        //@dd($courseStudents);
                                         $rowspan = max(1, $courseStudents->count());
 
                                         $firstStudent = $calendar['calendarStudents'][0] ?? null;
@@ -913,7 +914,6 @@
     });
 });
 </script>
-
 {{-- edit --}}
 <script>
     document.addEventListener("DOMContentLoaded", function () {
@@ -1248,7 +1248,7 @@
     });
     </script>
 
-    <script>
+<script>
         document.addEventListener("DOMContentLoaded", function () {
             // Chỉnh sửa form và dữ liệu khi thay đổi type
             const radios = document.querySelectorAll('input[name="type"]');
@@ -1489,7 +1489,7 @@
         });
     </script>
 
-    <script>
+<script>
         document.addEventListener("DOMContentLoaded", function () {
             // Chuyển tab mà giữ lại bộ lọc
             document.querySelectorAll("#calendarTypeTabs .nav-link").forEach(tab => {

@@ -215,7 +215,7 @@
                                             <td>
                                                 <a
                                                     style="font-weight: 600; color: #4C9AFF"
-                                                    href="{{ route($detailRoute, ['start_date' => $date, 'time' => $time]) }}"
+                                                    href="{{ route($detailRoute, [ 'time' => $time]) }}"
                                                 >
                                                     @switch($time)
                                                         @case(1) Buổi sáng @break
