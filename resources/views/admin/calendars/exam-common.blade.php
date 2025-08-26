@@ -244,12 +244,15 @@
                                                 {{ $groupStadium['student_count'] }}
                                             </td>
 
-                                            {{-- NÚT CHI TIẾT — 1 NÚT/1 DÒNG --}}
-                                            <td>
-                                                <a class="btn btn-outline-primary btn-sm"
-                                                   href="{{ route($detailRoute, ['calendar_ids' => $calendarIdsCsv]) }}">
-                                                    Chi tiết
-                                                </a>
+                                            {{-- THÊM CỘT "CHI TIẾT" Ở ĐÂY --}}
+                                            <td class="text-nowrap">
+                                                @foreach($groupStadium['calendars'] as $cal)
+                                                    <a
+                                                        href="{{ route($detailRoute, ['calendar_id' => $cal->id]) }}"
+                                                        class="btn btn-sm btn-outline-primary me-1 mb-1">
+                                                        #{{ $cal->id }}
+                                                    </a>
+                                                @endforeach
                                             </td>
                                         </tr>
                                     @endforeach
