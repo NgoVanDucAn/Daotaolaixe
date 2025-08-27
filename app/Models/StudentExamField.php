@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * 
+ *
  *
  * @property int $id
  * @property int $student_id
@@ -39,26 +39,21 @@ class StudentExamField extends Model
     protected $table = 'student_exam_fields';
 
     protected $fillable = [
-        'student_id',
-        'course_id',
+        'course_student_id',
         'exam_field_id',
         'type_exam',
         'attempt_number',
         'status',
     ];
 
-    public function student()
+    public function courseStudent()
     {
-        return $this->belongsTo(Student::class);
-    }
-
-    public function course()
-    {
-        return $this->belongsTo(Course::class);
+        return $this->belongsTo(\App\Models\CourseStudent::class, 'course_student_id'); // ✅
     }
 
     public function examField()
     {
-        return $this->belongsTo(ExamField::class);
+        return $this->belongsTo(\App\Models\ExamField::class, 'exam_field_id');
     }
+
 }

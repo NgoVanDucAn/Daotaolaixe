@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * 
+ *
  *
  * @property int $id
  * @property int $student_id
@@ -159,4 +159,15 @@ class CourseStudent extends Model
             ])
             ->withTimestamps();
     }
+
+    public function studentStatuses()
+    {
+        return $this->hasMany(\App\Models\StudentStatus::class, 'course_student_id'); // ✅
+    }
+
+    public function studentExamFields()
+    {
+        return $this->hasMany(\App\Models\StudentExamField::class, 'course_student_id'); // ✅
+    }
+
 }

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * 
+ *
  *
  * @property int $id
  * @property int|null $ranking_id
@@ -129,7 +129,7 @@ class Course extends Model
         return $this->belongsToMany(Student::class, 'course_students')
                     ->withPivot([
                         'id', 'contract_date', 'contract_image', 'graduation_date', 'teacher_id', 'stadium_id', 'note', 'health_check_date',
-                        'sale_id', 'hours', 'km', 'status', 'tuition_fee', 
+                        'sale_id', 'hours', 'km', 'status', 'tuition_fee',
                         'start_date', 'end_date', 'cabin_learning_date', 'exam_field_id', 'gifted_chip_hours', 'reserved_chip_hours'
                     ])
                     ->withTimestamps();
@@ -156,13 +156,4 @@ class Course extends Model
         return $this->belongsToMany(LearningField::class, 'course_learning_field')->withPivot('hours', 'km')->withTimestamps();
     }
 
-    public function studentExamFields()
-    {
-        return $this->hasMany(StudentExamField::class);
-    }
-
-    public function studentStatuses()
-    {
-        return $this->hasMany(StudentStatus::class);
-    }
 }

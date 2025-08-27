@@ -1294,98 +1294,99 @@ class CalendarController extends Controller
         }
     }
 
-    private function updateStudentStudyTotals(int $studentId, int $learningFieldId, int $courseId)
+    private function updateStudentStudyTotals(int $courseStudentId, int $learningFieldId)
     {
-        $totals = DB::table('calendar_student')
-            ->join('calendars', 'calendar_student.calendar_id', '=', 'calendars.id')
-            ->join('calendar_course', 'calendar_course.calendar_id', '=', 'calendars.id')
-            ->where('calendar_student.student_id', $studentId)
-            ->where('calendars.type', 'study')
-            ->where('calendar_course.course_id', $courseId)
-            ->where('calendars.learning_field_id', $learningFieldId)
+        // Lấy ra course_id và student_id từ course_students để dùng cho logic phụ thuộc
+        $cs = DB::table('course_students')->where('id', $courseStudentId)->first();
+        if (!$cs) {
+            Log::warning("Không tìm thấy course_student_id={$courseStudentId}");
+            return;
+        }
+
+        // Tính totals theo course_student_id thay vì student_id + course_id
+        $totals = DB::table('calendar_course_student as ccs')
+            ->join('calendars as c', 'ccs.calendar_id', '=', 'c.id')
+            ->join('calendar_course as cc', 'cc.calendar_id', '=', 'c.id')
+            ->where('ccs.course_student_id', $courseStudentId)
+            ->where('c.type', 'study')
+            ->where('c.learning_field_id', $learningFieldId)
+            ->where('cc.course_id', $cs->course_id)
             ->selectRaw('
-                COALESCE(SUM(hours), 0) as total_hours,
-                COALESCE(SUM(km), 0) as total_km,
-                COALESCE(SUM(night_hours), 0) as total_night_hours,
-                COALESCE(SUM(auto_hours), 0) as total_auto_hours
-            ')
+            COALESCE(SUM(ccs.hours), 0) as total_hours,
+            COALESCE(SUM(ccs.km), 0) as total_km,
+            COALESCE(SUM(ccs.night_hours), 0) as total_night_hours,
+            COALESCE(SUM(ccs.auto_hours), 0) as total_auto_hours
+        ')
             ->first();
 
-            $student = Student::find($studentId);
-            if (!$student) {
-                Log::warning("Không tìm thấy student_id={$studentId}");
-                return;
+        // Tính status (đủ/thiếu) dựa trên yêu cầu của khóa học + môn
+        $status = 0;
+        $student = DB::table('students')->where('id', $cs->student_id)->first();
+        if ($student && strtolower($student->status ?? '') === 'active') {
+            $required = DB::table('course_learning_field')
+                ->where('course_id', $cs->course_id)
+                ->where('learning_field_id', $learningFieldId)
+                ->first();
+            if ($required) {
+                $status = ($totals->total_hours >= ($required->hours ?? 0)
+                    && $totals->total_km >= ($required->km ?? 0)) ? 1 : 0;
             }
-            $status = 0;
-            if (strtolower($student->status) === 'active') {
-                $course = Course::with('learningFields')->find($courseId);
-                if ($course) {
-                    $required = $course->learningFields
-                        ->where('id', $learningFieldId)
-                        ->first()?->pivot;
+        } else {
+            $status = 2; // nghỉ/không active
+        }
 
-                    if ($required) {
-                        $status = ($totals->total_hours >= $required->hours && $totals->total_km >= $required->km) ? 1 : 0;
-                    } else {
-                        Log::warning("Không tìm thấy yêu cầu giờ/km cho learning_field_id={$learningFieldId} trong course_id={$courseId}");
-                    }
-                } else {
-                    Log::warning("Không tìm thấy course_id={$courseId}");
-                }
-            } else {
-                $status = 2;
-            }
-
-
-
-        // Cập nhật hoặc tạo mới bản ghi trong student_statuses
+        // Upsert bằng course_student_id (mới)
         DB::table('student_statuses')->updateOrInsert(
             [
-                'student_id' => $studentId,
-                'learning_field_id' => $learningFieldId,
-                'course_id' => $courseId,
+                'course_student_id'  => $courseStudentId,
+                'learning_field_id'  => $learningFieldId,
             ],
             [
-                'hours' => $totals->total_hours,
-                'km' => $totals->total_km,
+                'hours'       => $totals->total_hours,
+                'km'          => $totals->total_km,
                 'night_hours' => $totals->total_night_hours,
-                'auto_hours' => $totals->total_auto_hours,
-                'status' => $status,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'auto_hours'  => $totals->total_auto_hours,
+                'status'      => $status,
+                'created_at'  => now(),
+                'updated_at'  => now(),
             ]
         );
-
-        Log::info("Cập nhật tổng giờ/km cho student_id={$studentId}, learning_field_id={$learningFieldId}, course_id={$courseId}", (array)$totals);
+        Log::info("Cập nhật tổng giờ/km cho student_id={$cs->student_id}, learning_field_id={$learningFieldId}, course_id={$cs->course_id}", (array)$totals);
     }
 
-    private function updateStudentExamAttemptNumber(int $studentId, int $examFieldId, int $courseId)
+    private function updateStudentExamAttemptNumber(int $courseStudentId, int $examFieldId)
     {
-        $calendarStudentIds = DB::table('calendar_student as cs')
-            ->join('calendar_course as cc', 'cc.calendar_id', '=', 'cs.calendar_id')
-            ->join('calendars as c', 'c.id', '=', 'cs.calendar_id')
-            ->where('cs.student_id', $studentId)
-            ->where('c.type', 'exam')
-            ->where('cc.course_id', $courseId)
-            ->pluck('cs.id');
+        $cs = DB::table('course_students')->where('id', $courseStudentId)->first();
+        if (!$cs) {
+            Log::warning("Không tìm thấy course_student_id={$courseStudentId}");
+            return;
+        }
 
-            $hasPassed = DB::table('calendar_student_exam_field')
+        // Lấy tất cả calendar_student (pivot cũ) tương ứng course_student_id hiện diện trong lịch thi
+        $calendarStudentIds = DB::table('calendar_course_student as ccs')
+            ->join('calendars as c', 'c.id', '=', 'ccs.calendar_id')
+            ->join('calendar_course as cc', 'cc.calendar_id', '=', 'c.id')
+            ->where('ccs.course_student_id', $courseStudentId)
+            ->where('c.type', 'exam')
+            ->where('cc.course_id', $cs->course_id)
+            ->pluck('ccs.id'); // chính là id của calendar_course_student
+
+        $hasPassed = DB::table('calendar_student_exam_field')
             ->whereIn('calendar_student_id', $calendarStudentIds)
             ->where('exam_field_id', $examFieldId)
             ->where('exam_all_status', 1)
             ->exists();
 
-            $examCount = DB::table('calendar_student_exam_field')
+        $examCount = DB::table('calendar_student_exam_field')
             ->whereIn('calendar_student_id', $calendarStudentIds)
             ->where('exam_field_id', $examFieldId)
-            ->whereIn('exam_all_status', [1,2])
+            ->whereIn('exam_all_status', [1, 2])
             ->count();
 
         DB::table('student_exam_fields')->updateOrInsert(
             [
-                'student_id'    => $studentId,
-                'exam_field_id' => $examFieldId,
-                'course_id'     => $courseId,
+                'course_student_id' => $courseStudentId,
+                'exam_field_id'     => $examFieldId,
             ],
             [
                 'attempt_number' => $examCount,
@@ -1395,7 +1396,7 @@ class CalendarController extends Controller
             ]
         );
 
-        Log::info("Cập nhật attempt_number = {$examCount} cho student_id = {$studentId}, exam_field_id = {$examFieldId}, course_id = {$courseId}");
+//        Log::info("Cập nhật attempt_number = {$examCount} cho student_id = {$studentId}, exam_field_id = {$examFieldId}, course_id = {$courseId}");
     }
 
     /**

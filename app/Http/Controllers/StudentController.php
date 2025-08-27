@@ -38,14 +38,15 @@ class StudentController extends Controller
         $studentCode = $lastName . $initials;
         return $studentCode;
     }
-    
+
     /**
      * Display a listing of the resource.
      */
+
     // public function index(Request $request)
     // {
     //     $query = Student::where('is_student', 1)->with(['convertedBy','saleSupport', 'leadSource', 'courses.ranking', 'fees', 'studentStatuses.learningField', 'studentExamFields.examField', 'calendars.examSchedule.stadium', 'calendars' => fn($q) => $q->whereIn('type', ['study', 'exam'])->where('date_end', '>', Carbon::now())->orderBy('date_start', 'asc')]);
-        
+
     //     if ($request->filled('q')) {
     //         $q = $request->q;
     //         $query->where(function ($sub) use ($q) {
@@ -129,20 +130,20 @@ class StudentController extends Controller
     {
         $query = Student::where('is_student', 1)
             ->with([
-                'convertedBy',
-                'saleSupport',
-                'leadSource',
-                'courses',
-                'courses.ranking',
-                'fees',
-                'studentStatuses.learningField',
-                'studentExamFields.examField',
-                'courseStudents.calendars' => function ($q) {
-                    $q->whereIn('type', ['study', 'exam'])
-                        ->where('date_end', '>', Carbon::now())
-                        ->orderBy('date_start', 'asc');
+                'convertedBy','saleSupport','leadSource',
+                'courses','courses.ranking','fees',
+                'courseStudents' => function ($q) {
+                    $q->with([
+                        'studentStatuses.learningField',
+                        'studentExamFields.examField',
+                        'calendars' => function ($q2) {
+                            $q2->whereIn('type', ['study','exam'])
+                                ->where('date_end','>', Carbon::now())
+                                ->orderBy('date_start','asc');
+                        },
+                        'calendars.examSchedule.stadium',
+                    ]);
                 },
-                'courseStudents.calendars.examSchedule.stadium',
             ]);
 
         if ($request->q) {
@@ -384,7 +385,7 @@ class StudentController extends Controller
         if ($request->filled('created_from') || $request->filled('created_to')) {
             $from = $request->filled('created_from') ? Carbon::parse($request->created_from)->startOfDay() : null;
             $to = $request->filled('created_to') ? Carbon::parse($request->created_to)->endOfDay() : null;
-        
+
             $query->where(function ($q) use ($from, $to) {
                 $q->whereHas('courseStudents', function ($subQ) use ($from, $to) {
                     if ($from) {
@@ -394,7 +395,7 @@ class StudentController extends Controller
                         $subQ->whereDate('contract_date', '<=', $to);
                     }
                 });
-        
+
                 $q->orWhere(function ($subQ) use ($from, $to) {
                     if ($from) {
                         $subQ->whereDate('date_of_profile_set', '>=', $from);
@@ -435,22 +436,57 @@ class StudentController extends Controller
         $totalKm = [];
         $examsResults = [];
 
-        foreach ($students as $student) {
-            foreach ($student->courseStudents as $courseStudent) {
-                if (optional($courseStudent->course->ranking)->vehicle_type !== 0) continue;
-                $courseId = $courseStudent->course_id;
 
-                $feesForCourse = $student->fees->where('course_id', $courseId);
+        // Eager load để tránh N+1
+        $query->with([
+            'fees',
+            'courseStudents' => function ($q) {
+                $q->with([
+                    'course.ranking',
+                    'studentStatuses',      // tổng giờ/km
+                    'studentExamFields',    // kết quả thi
+                    'calendars' => function ($q2) {
+                        $q2->whereIn('type', ['study', 'exam'])
+                            ->where('date_end', '>', Carbon::now())
+                            ->orderBy('date_start', 'asc');
+                    },
+                    'calendars.examSchedule.stadium',
+                ]);
+            },
+        ]);
+
+        // Tính toán
+        foreach ($students as $student) {
+            foreach ($student->courseStudents as $cs) {
+                $course = $cs->course;
+                if (!$course || optional($course->ranking)->vehicle_type !== 0) {
+                    continue; // chỉ lấy khóa mô tô
+                }
+
+                $courseId = $cs->course_id;
+
+                // 1) Học phí đã đóng
+                // Khuyến nghị: dùng course_student_id cho nhất quán với thiết kế mới
+                $feesForCourse = $student->fees->where('course_student_id', $cs->id);
+                // (Nếu bảng fees chưa chuyển, tạm dùng course_id)
+                // $feesForCourse = $student->fees->where('course_id', $courseId);
+
                 $courseFees[$student->id][$courseId] = $feesForCourse->sum('amount');
 
-                $tuitionFee = $courseStudent->tuition_fee ?? 0;
-                $remainingFees[$student->id][$courseId] = $tuitionFee - $courseFees[$student->id][$courseId];
+                // 2) Học phí còn lại
+                $tuitionFee = $cs->tuition_fee ?? 0;
+                $remainingFees[$student->id][$courseId] = $tuitionFee - ($courseFees[$student->id][$courseId] ?? 0);
 
-                $courseStatuses = $student->studentStatuses->where('course_id', $courseId);
-                $totalHours[$student->id][$courseId] = $courseStatuses->sum('hours');
-                $totalKm[$student->id][$courseId] = $courseStatuses->sum('km');
+                // 3) Giờ/Km từ student_statuses (theo course_student_id)
+                $totalHours[$student->id][$courseId] = $cs->studentStatuses->sum('hours');
+                $totalKm[$student->id][$courseId]     = $cs->studentStatuses->sum('km');
 
-                $examsResults[$student->id][$courseId] = $student->studentExamFields->where('course_id', $courseId)->values();
+                // 4) Kết quả thi từ student_exam_fields (theo course_student_id)
+                $examsResults[$student->id][$courseId] = $cs->studentExamFields->values();
+                // Nếu cần tách theo type_exam:
+                // $examsResults[$student->id][$courseId]['lt'] = $cs->studentExamFields->where('type_exam',1)->values();
+                // $examsResults[$student->id][$courseId]['th'] = $cs->studentExamFields->where('type_exam',2)->values();
+                // $examsResults[$student->id][$courseId]['tn'] = $cs->studentExamFields->where('type_exam',3)->values();
             }
         }
         return view('admin.students.index-moto', compact(
@@ -585,21 +621,25 @@ class StudentController extends Controller
     public function indexCar(Request $request)
     {
         $query = Student::withVehicleType(1)
-        ->with([
-            'convertedBy',
-            'saleSupport',
-            'leadSource',
-            'fees',
-            'studentStatuses.learningField',
-            'studentExamFields.examField',
-            // 'courseStudents.course',
-            // 'courseStudents.calendars' => function ($q) {
-            //     $q->whereIn('type', ['study', 'exam'])
-            //       ->where('date_end', '>', Carbon::now())
-            //       ->orderBy('date_start', 'asc');
-            // },
-            // 'courseStudents.calendars.examSchedule.stadium',
-        ]);
+            ->with([
+                'convertedBy',
+                'saleSupport',
+                'leadSource',
+                'fees',
+                'courseStudents' => function ($q) {
+                    $q->with([
+                        'course.ranking',
+                        'studentStatuses.learningField',   // ✅ load từ CourseStudent
+                        'studentExamFields.examField',     // ✅ load từ CourseStudent
+                        'calendars' => function ($q2) {
+                            $q2->whereIn('type', ['study', 'exam'])
+                                ->where('date_end', '>', Carbon::now())
+                                ->orderBy('date_start', 'asc');
+                        },
+                        'calendars.examSchedule.stadium',
+                    ]);
+                },
+            ]);
 
         if ($request->filled('course_id')) {
             $courseId = $request->course_id;
@@ -659,7 +699,7 @@ class StudentController extends Controller
         if ($request->filled('created_from') || $request->filled('created_to')) {
             $from = $request->filled('created_from') ? Carbon::parse($request->created_from)->startOfDay() : null;
             $to = $request->filled('created_to') ? Carbon::parse($request->created_to)->endOfDay() : null;
-        
+
             $query->where(function ($q) use ($from, $to) {
                 $q->whereHas('courseStudents', function ($subQ) use ($from, $to) {
                     if ($from) {
@@ -669,7 +709,7 @@ class StudentController extends Controller
                         $subQ->whereDate('contract_date', '<=', $to);
                     }
                 });
-        
+
                 $q->orWhere(function ($subQ) use ($from, $to) {
                     if ($from) {
                         $subQ->whereDate('date_of_profile_set', '>=', $from);
@@ -708,26 +748,58 @@ class StudentController extends Controller
         $totalHours = [];
         $totalKm = [];
         $examsResults = [];
-        
+
+        // Eager load để tránh N+1
+        $query->with([
+            'fees',
+            'courseStudents' => function ($q) {
+                $q->with([
+                    'course.ranking',
+                    'studentStatuses',      // tổng giờ/km
+                    'studentExamFields',    // kết quả thi
+                    'calendars' => function ($q2) {
+                        $q2->whereIn('type', ['study', 'exam'])
+                            ->where('date_end', '>', Carbon::now())
+                            ->orderBy('date_start', 'asc');
+                    },
+                    'calendars.examSchedule.stadium',
+                ]);
+            },
+        ]);
 
         foreach ($students as $student) {
-            foreach ($student->courseStudents as $courseStudent) {
-                if (optional($courseStudent->course->ranking)->vehicle_type !== 0) continue;
-                    $courseId = $courseStudent->course->id;
+            foreach ($student->courseStudents as $cs) {
+                $course = $cs->course;
+                if (!$course || optional($course->ranking)->vehicle_type !== 0) {
+                    continue; // lọc theo mô tô (0). Với ô tô thì đổi 1.
+                }
 
-                    $feesForCourse = $student->fees->where('course_id', $courseId);
-                    $courseFees[$student->id][$courseId] = $feesForCourse->sum('amount');
+                $courseId = $cs->course_id;
 
-                    $tuitionFee = $courseStudent->tuition_fee ?? 0;
-                    $remainingFees[$student->id][$courseId] = $tuitionFee - $courseFees[$student->id][$courseId];
+                // 1) Học phí đã đóng (khuyến nghị dùng course_student_id cho nhất quán)
+                $feesForCourse = $student->fees
+                    ->where('course_student_id', $cs->id);     // ✅ ưu tiên cách này
+                // ->where('course_id', $courseId);        // ❌ chỉ dùng nếu bảng fees của bạn chưa chuyển
 
-                    $courseStatuses = $student->studentStatuses->where('course_id', $courseId);
-                    $totalHours[$student->id][$courseId] = $courseStatuses->sum('hours');
-                    $totalKm[$student->id][$courseId] = $courseStatuses->sum('km');
+                $courseFees[$student->id][$courseId] = $feesForCourse->sum('amount');
 
-                    $examsResults[$student->id][$courseId] = $student->studentExamFields->where('course_id', $courseId)->values();
+                // 2) Học phí còn lại
+                $tuitionFee = $cs->tuition_fee ?? 0;
+                $remainingFees[$student->id][$courseId] = $tuitionFee - ($courseFees[$student->id][$courseId] ?? 0);
+
+                // 3) Giờ / Km từ student_statuses (đã chuyển sang course_student_id)
+                $totalHours[$student->id][$courseId] = $cs->studentStatuses->sum('hours');
+                $totalKm[$student->id][$courseId]     = $cs->studentStatuses->sum('km');
+
+                // 4) Kết quả thi từ student_exam_fields (đã chuyển sang course_student_id)
+                $examsResults[$student->id][$courseId] = $cs->studentExamFields->values();
+                // Nếu cần tách theo type_exam:
+                // $examsResults[$student->id][$courseId]['lt'] = $cs->studentExamFields->where('type_exam',1)->values();
+                // $examsResults[$student->id][$courseId]['th'] = $cs->studentExamFields->where('type_exam',2)->values();
+                // $examsResults[$student->id][$courseId]['tn'] = $cs->studentExamFields->where('type_exam',3)->values();
             }
         }
+
 
         return view('admin.students.index-car', compact(
             'students', 'courseFees', 'remainingFees', 'courseAlls', 'stadiums', 'teachers',
@@ -751,10 +823,10 @@ class StudentController extends Controller
             ->orderBy('date_start')
             ->get();
 
-        $statuses = StudentStatus::where('student_id', $student->id)
-            ->where('course_id', $courseId)
-            ->get()
-            ->keyBy('learning_field_id');
+        $cs = $student->courseStudents()->where('course_id', $courseId)->firstOrFail();
+
+        $statuses = StudentStatus::where('course_student_id', $cs->id)
+            ->get()->keyBy('learning_field_id');
 
         $grouped = $studyCalendars->groupBy(fn ($calendar) => optional($calendar->learningField)->name ?? 'Chưa xác định')
         ->map(function ($items, $fieldName) use ($statuses) {
@@ -833,7 +905,7 @@ class StudentController extends Controller
         $saleSupports = User::role('salesperson')->get();
         $leadSources = LeadSource::all();
         $rankings = Ranking::all();
-        
+
         return view('admin.students.create', compact('saleSupports', 'leadSources', 'rankings'));
     }
 
@@ -865,7 +937,7 @@ class StudentController extends Controller
             $extension = $request->image->getClientOriginalExtension();
             //đổi tên file ảnh kết hợp timestamp và uuid để tránh trùng cho tên ảnh
             $fileName = $timestamp . '_' . Str::uuid() . '.' . $extension;
-            
+
             $imagePath = $request->image->storeAs('students', $fileName, 'public');
             $data['image'] = $imagePath;
         }
@@ -956,48 +1028,79 @@ class StudentController extends Controller
 
     public function show($id)
     {
-        $teachers = User::role('instructor')->with('roles')->get();
-        $courseAlls = Course::all();
-        $rankings = Ranking::all();
-        $stadiums = Stadium::all();
-        $exams = ExamField::all();
-        $users = User::all();
+        $teachers    = User::role('instructor')->with('roles')->get();
+        $courseAlls  = Course::all();
+        $rankings    = Ranking::all();
+        $stadiums    = Stadium::all();
+        $exams       = ExamField::all();
+        $users       = User::all();
         $studentsAll = Student::all();
         $leadSources = LeadSource::all();
-        $sales = User::role('salesperson')->with('roles')->get();
-        $student = Student::where('is_student', 1)->with(['convertedBy','saleSupport', 'leadSource', 'courses.ranking', 'fees', 'studentStatuses.learningField', 'studentExamFields.examField', 'courseStudents.calendars' => function ($q) { $q->whereIn('type', ['study', 'exam'])->where('date_end', '>', Carbon::now())->orderBy('date_start', 'asc');},])->find($id);
+        $sales       = User::role('salesperson')->with('roles')->get();
 
-        if (!$student) {
-            abort(404, 'Học viên không tồn tại!');
+        // Eager load TẤT CẢ quan hệ cần dùng qua CourseStudent
+        $student = Student::where('is_student', 1)
+            ->with([
+                'convertedBy', 'saleSupport', 'leadSource',
+                'courses.ranking', 'fees',
+                'courseStudents' => function ($q) {
+                    $q->with([
+                        'course', // + 'course.ranking' nếu cần
+                        'studentStatuses.learningField',
+                        'studentExamFields.examField',
+                        'calendars' => function ($q2) {
+                            $q2->whereIn('type', ['study', 'exam'])
+                                ->where('date_end', '>', Carbon::now())
+                                ->orderBy('date_start', 'asc');
+                        },
+                        'calendars.examSchedule.stadium',
+                    ]);
+                },
+            ])
+            ->findOrFail($id);
+
+        $courseFees       = [];
+        $remainingFees    = [];
+        $totalHours       = [];
+        $totalKm          = [];
+        $totalNightHours  = [];
+        $totalAutoHours   = [];
+        $examsResults     = [];
+
+        // TÍNH TOÁN QUA CourseStudent (đúng với schema mới)
+        foreach ($student->courseStudents as $cs) {
+            $courseId = $cs->course_id;
+            if (!$courseId) { continue; }
+
+            // 1) Học phí đã đóng (ưu tiên theo course_student_id)
+            $feesForCourse = $student->fees->where('course_student_id', $cs->id);
+            $courseFees[$student->id][$courseId] = $feesForCourse->sum('amount');
+
+            // 2) Học phí còn lại
+            $tuitionFee = $cs->tuition_fee ?? 0;
+            $remainingFees[$student->id][$courseId] = $tuitionFee - ($courseFees[$student->id][$courseId] ?? 0);
+
+            // 3) Tổng giờ/km từ student_statuses (đã chuyển cột sang course_student_id)
+            $totalHours[$student->id][$courseId]      = $cs->studentStatuses->sum('hours');
+            $totalKm[$student->id][$courseId]         = $cs->studentStatuses->sum('km');
+            $totalNightHours[$student->id][$courseId] = $cs->studentStatuses->sum('night_hours');
+            $totalAutoHours[$student->id][$courseId]  = $cs->studentStatuses->sum('auto_hours');
+
+            // 4) Kết quả thi từ student_exam_fields (đã chuyển cột sang course_student_id)
+            $exams = $cs->studentExamFields;
+            $examsResults[$student->id][$courseId]['lt'] = $exams->where('type_exam', 1)->values();
+            $examsResults[$student->id][$courseId]['th'] = $exams->where('type_exam', 2)->values();
+            $examsResults[$student->id][$courseId]['tn'] = $exams->where('type_exam', 3)->values();
+
+            // (Nếu bạn cần ảnh hợp đồng: ưu tiên lấy từ CourseStudent nếu cột nằm ở đó)
+            // $contractImage = $cs->contract_image ?? null;
         }
 
-        $courseFees = [];
-        $remainingFees = [];
-        $totalHours = [];
-        $totalKm = [];
-        $totalNightHours = [];
-        $totalAutoHours = [];
-        $examsResults = [];
-
-        $student->progress_by_course = [];
-        foreach ($student->courses as $course) {
-            $courseId = $course->id;
-            $feesForCourse = $student->fees->where('course_id', $course->id);
-            $courseFees[$student->id][$course->id] = $feesForCourse->sum('amount');
-            $coursePivot = $student->courses->where('id', $course->id)->first();
-            $tuitionFee = $coursePivot && $coursePivot->pivot ? $coursePivot->pivot->tuition_fee : 0;
-            $remainingFees[$student->id][$course->id] = $tuitionFee - $courseFees[$student->id][$course->id];
-            $courseStatuses = $student->studentStatuses->where('course_id', $courseId);
-            $totalHours[$student->id][$course->id] = $courseStatuses->sum('hours');
-            $totalKm[$student->id][$course->id] = $courseStatuses->sum('km');
-            $totalNightHours[$student->id][$course->id] = $courseStatuses->sum('night_hours');
-            $totalAutoHours[$student->id][$course->id] = $courseStatuses->sum('auto_hours');
-            $examsResults[$student->id][$course->id]['lt'] = $student->studentExamFields->where('course_id', $courseId)->where('type_exam', 1)->values();
-            $examsResults[$student->id][$course->id]['th'] = $student->studentExamFields->where('course_id', $courseId)->where('type_exam', 2)->values();
-            $examsResults[$student->id][$course->id]['tn'] = $student->studentExamFields->where('course_id', $courseId)->where('type_exam', 3)->values();
-            $contractImage = $course->pivot->contract_image ?? null;
-        }
-        return view('admin.students.show', compact('rankings', 'student','studentsAll', 'teachers', 'courseAlls', 'stadiums', 'sales','courseFees', 'remainingFees', 'totalHours', 'totalKm', 'totalNightHours', 'totalAutoHours', 'examsResults'));
+        return view('admin.students.show', compact(
+            'rankings', 'student', 'studentsAll', 'teachers', 'courseAlls',
+            'stadiums', 'sales', 'courseFees', 'remainingFees', 'totalHours',
+            'totalKm', 'totalNightHours', 'totalAutoHours', 'examsResults'
+        ));
     }
 
 
@@ -1059,13 +1162,13 @@ class StudentController extends Controller
             if ($request->hasFile('image')) {
                 $extension = $request->file('image')->getClientOriginalExtension();
                 $fileName = now()->timestamp . '_' . uniqid() . '.' . $extension;
-    
+
                 try {
                     $newImagePath = $request->file('image')->storeAs('students', $fileName, 'public');
                 } catch (\Exception $e) {
                     throw new \Exception('Upload ảnh thất bại: ' . $e->getMessage());
                 }
-    
+
                 $imagePath = $newImagePath;
             }
 
@@ -1141,7 +1244,7 @@ class StudentController extends Controller
             }
 
             DB::commit();
-            
+
             if ($newImagePath && $oldImagePath && Storage::disk('public')->exists($oldImagePath)) {
                 Storage::disk('public')->delete($oldImagePath);
             }
@@ -1193,10 +1296,10 @@ class StudentController extends Controller
                 'card_id.required' => 'Mã thẻ không được để trống.',
                 'card_id.unique' => 'Mã thẻ đã tồn tại. Vui lòng nhập mã khác.',
             ]);
-    
+
             $student->card_id = $request->card_id;
             $student->save();
-    
+
             return response()->json(['success' => true, 'message' => 'Mã thẻ được cập nhật thành công!']);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -1224,24 +1327,34 @@ class StudentController extends Controller
 
     public function showAll(Student $student, Course $course)
     {
+        // 1) Chỉ load những gì còn cần trực tiếp từ Student (không load statuses/exams ở đây)
         $student->load([
             'convertedBy',
             'saleSupport',
             'leadSource',
             'fees',
-            'studentStatuses.learningField',
-            'studentExamFields.examField',
+            'courses', // để lấy pivot tuition_fee, contract_image...
         ]);
 
-        // Lấy bản ghi course_student tương ứng
+        // 2) Lấy đúng bản ghi course_student và eager load mọi thứ liên quan đến course_student
         $courseStudent = $student->courseStudents()
             ->where('course_id', $course->id)
-            ->with(['calendars' => function ($q) {
-                $q->whereIn('type', ['study', 'exam'])->orderBy('date_start', 'asc');
-            }])
+            ->with([
+                // lịch
+                'calendars' => function ($q) {
+                    $q->whereIn('type', ['study', 'exam'])
+                        ->orderBy('date_start', 'asc');
+                },
+                'calendars.examSchedule.stadium',
+                'calendars.users',                 // nếu cần hiển thị instructor
+
+                // dữ liệu *gắn với course_student_id*
+                'studentStatuses.learningField',
+                'studentExamFields.examField',
+            ])
             ->first();
 
-        // Xử lý danh sách lịch học / lịch thi
+        // 3) Map danh sách lịch (giữ nguyên logic cũ)
         $calendars = collect($courseStudent?->calendars ?? [])->map(function ($calendar) {
             if ($calendar->type === 'exam') {
                 $calendar->fields = $calendar->examFieldsOfCalendar;
@@ -1255,10 +1368,10 @@ class StudentController extends Controller
                         ->where('exam_field_id', $field->id)
                         ->first();
 
-                    $field->attempt_number = $pivotData->attempt_number ?? null;
+                    $field->attempt_number  = $pivotData->attempt_number  ?? null;
                     $field->exam_all_status = $pivotData->exam_all_status ?? null;
-                    $field->exam_status = $pivotData->exam_status ?? null;
-                    $field->remarks = $pivotData->remarks ?? null;
+                    $field->exam_status     = $pivotData->exam_status     ?? null;
+                    $field->remarks         = $pivotData->remarks         ?? null;
                 }
             } elseif ($calendar->type === 'study') {
                 $calendar->fields = $calendar->learningField ? collect([$calendar->learningField]) : collect();
@@ -1271,51 +1384,50 @@ class StudentController extends Controller
             }
 
             $calendar->instructor = $calendar->users->first();
-
             return $calendar;
         });
 
-        // Dữ liệu bổ sung
-        $teachers = User::role('instructor')->with('roles')->get();
-        $courseAlls = Course::all();
-        $stadiums = Stadium::all();
-        $exams = ExamField::all();
-        $users = User::all();
+        // 4) Dữ liệu bổ sung (giữ nguyên)
+        $teachers    = User::role('instructor')->with('roles')->get();
+        $courseAlls  = Course::all();
+        $stadiums    = Stadium::all();
+        $exams       = ExamField::all();
+        $users       = User::all();
         $studentsAll = Student::all();
         $leadSources = LeadSource::all();
-        $sales = User::role('salesperson')->with('roles')->get();
-        
-        // 1. Học phí đã đóng
-        $feesForCourse = $student->fees->where('course_student_id', $courseStudent->id);
-        $courseFees = $feesForCourse->sum('amount');
+        $sales       = User::role('salesperson')->with('roles')->get();
 
-        // 2. Học phí còn lại
-        $coursePivot = $student->courses->where('id', $course->id)->first();
-        $tuitionFee = $coursePivot && $coursePivot->pivot ? $coursePivot->pivot->tuition_fee : 0;
+        // 5) Học phí đã đóng (dùng course_student_id)
+        $feesForCourse = $student->fees->where('course_student_id', $courseStudent?->id);
+        $courseFees    = $feesForCourse->sum('amount');
+
+        // 6) Học phí còn lại (giữ nguyên cách lấy từ pivot courses của Student)
+        $coursePivot  = $student->courses->where('id', $course->id)->first();
+        $tuitionFee   = $coursePivot && $coursePivot->pivot ? $coursePivot->pivot->tuition_fee : 0;
         $remainingFees = $tuitionFee - $courseFees;
 
-        // 3. Giờ và km đã hoàn thành (status = 10)
-        $completedCalendars = collect($courseStudent?->calendars ?? [])->filter(fn($calendar) =>
-            $calendar->pivot?->status == 10
+        // 7) Giờ/km đã hoàn thành (status = 10) – vẫn từ pivot calendar_student
+        $completedCalendars = collect($courseStudent?->calendars ?? [])->filter(
+            fn($calendar) => $calendar->pivot?->status == 10
         );
-
-        $totalHours = $completedCalendars->sum(fn($c) => $c->pivot->hours);
-        $totalKm = $completedCalendars->sum(fn($c) => $c->pivot->km);
-        $totalAutoHours = $completedCalendars->sum(fn($c) => $c->pivot->auto_hours);
+        $totalHours      = $completedCalendars->sum(fn($c) => $c->pivot->hours);
+        $totalKm         = $completedCalendars->sum(fn($c) => $c->pivot->km);
+        $totalAutoHours  = $completedCalendars->sum(fn($c) => $c->pivot->auto_hours);
         $totalNightHours = $completedCalendars->sum(fn($c) => $c->pivot->night_hours);
 
-        // 4. Tổng giờ và km tất cả (bất kể trạng thái)
-        $allCalendars = collect($courseStudent?->calendars ?? []);
-        $totalHoursAlls = $allCalendars->sum(fn($c) => $c->pivot->hours);
-        $totalKmAlls = $allCalendars->sum(fn($c) => $c->pivot->km);
+        // 8) Tổng giờ/km tất cả buổi (bất kể trạng thái)
+        $allCalendars       = collect($courseStudent?->calendars ?? []);
+        $totalHoursAlls     = $allCalendars->sum(fn($c) => $c->pivot->hours);
+        $totalKmAlls        = $allCalendars->sum(fn($c) => $c->pivot->km);
         $totalAutoHoursAlls = $allCalendars->sum(fn($c) => $c->pivot->auto_hours);
-        $totalNightHoursAlls = $allCalendars->sum(fn($c) => $c->pivot->night_hours);
+        $totalNightHoursAlls= $allCalendars->sum(fn($c) => $c->pivot->night_hours);
 
-        // 5. Kết quả thi
-        $examsResults = $student->studentExamFields->where('course_id', $course->id)->values();
+        // 9) Kết quả thi — lấy trực tiếp từ courseStudent đã eager load (tránh query thêm)
+        $examsResults = $courseStudent ? $courseStudent->studentExamFields->values() : collect();
 
-        // 6. Hợp đồng (nếu có)
+        // 10) Hợp đồng (nếu có)
         $contractImage = $coursePivot->pivot->contract_image ?? null;
+
         $rankings = Ranking::all();
         return view('admin.students.show_all', compact(
             'rankings',
@@ -1347,6 +1459,7 @@ class StudentController extends Controller
             'sales'
         ));
     }
+
 
     public function editCouseInShowAllOld(Student $student, Course $course)
     {
@@ -1384,7 +1497,7 @@ class StudentController extends Controller
                             ->where('calendar_student_id', $calendar->pivot->id ?? null)
                             ->where('exam_field_id', $field->id)
                             ->first();
-        
+
                         $field->attempt_number = $pivotData->attempt_number ?? null;
                         $field->exam_all_status = $pivotData->exam_all_status ?? null;
                         $field->exam_status = $pivotData->exam_status ?? null;
@@ -1405,7 +1518,7 @@ class StudentController extends Controller
 
                 return $calendar;
             });
-            
+
         $teachers = User::role('instructor')->with('roles')->get();
         $courseAlls = Course::all();
         $stadiums = Stadium::all();
@@ -1414,16 +1527,16 @@ class StudentController extends Controller
         $studentsAll = Student::all();
         $leadSources = LeadSource::all();
         $sales = User::role('salesperson')->with('roles')->get();
-    
+
         // 1. Học phí đã đóng
         $feesForCourse = $student->fees->where('course_student_id', $course->id);
         $courseFees = $feesForCourse->sum('amount');
-    
+
         // 2. Học phí còn lại
         $coursePivot = $student->courses->where('id', $course->id)->first();
         $tuitionFee = $coursePivot && $coursePivot->pivot ? $coursePivot->pivot->tuition_fee : 0;
         $remainingFees = $tuitionFee - $courseFees;
-        
+
         // 3. Giờ và km từ bảng calendar_student
         $courseStatuses = $student->courseStudents
         ->flatMap(function ($courseStudent) use ($course) {
@@ -1463,10 +1576,10 @@ class StudentController extends Controller
         $totalNightHoursAlls = $courseStatusesAlls->sum(function ($calendar) {
             return $calendar->pivot->night_hours;
         });
-    
+
         // 4. Kết quả thi
         $examsResults = $student->studentExamFields->where('course_id', $course->id)->values();
-    
+
         // 5. Hợp đồng (nếu có)
         $contractImage = $coursePivot->pivot->contract_image ?? null;
         //  dd($student);
@@ -1562,7 +1675,7 @@ class StudentController extends Controller
         $studentsAll = Student::all();
         $leadSources = LeadSource::all();
         $sales = User::role('salesperson')->with('roles')->get();
-        
+
         // 1. Học phí đã đóng
         $feesForCourse = $student->fees->where('course_student_id', $courseStudent->id);
         $courseFees = $feesForCourse->sum('amount');

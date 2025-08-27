@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * 
+ *
  *
  * @property int $id
  * @property int $student_id
@@ -45,8 +45,7 @@ class StudentStatus extends Model
     protected $table = 'student_statuses';
 
     protected $fillable = [
-        'student_id',
-        'course_id',
+        'course_student_id',
         'learning_field_id',
         'hours',
         'km',
@@ -65,8 +64,14 @@ class StudentStatus extends Model
         return $this->belongsTo(Course::class);
     }
 
+    public function courseStudent()
+    {
+        return $this->belongsTo(CourseStudent::class, 'course_student_id');
+    }
+
     public function learningField()
     {
-        return $this->belongsTo(LearningField::class);
+        return $this->belongsTo(\App\Models\LearningField::class, 'learning_field_id');
     }
+
 }

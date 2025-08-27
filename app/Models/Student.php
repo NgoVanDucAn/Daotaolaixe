@@ -9,7 +9,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Normalizer;
 
 /**
- * 
+ *
  *
  * @property int $id
  * @property string $student_code Mã học viên
@@ -199,7 +199,7 @@ class Student extends Authenticatable
         return $this->belongsToMany(Course::class, 'course_students', 'student_id', 'course_id')
                     ->withPivot([
                         'id', 'contract_date', 'contract_image', 'graduation_date', 'teacher_id', 'stadium_id', 'note', 'health_check_date',
-                        'sale_id', 'hours', 'km', 'status', 'tuition_fee', 
+                        'sale_id', 'hours', 'km', 'status', 'tuition_fee',
                         'start_date', 'end_date', 'cabin_learning_date', 'exam_field_id', 'gifted_chip_hours', 'reserved_chip_hours'
                     ])
                     ->withTimestamps();
@@ -232,16 +232,6 @@ class Student extends Authenticatable
         return $this->belongsToMany(Lesson::class, 'lesson_student')
                     ->withPivot('status')
                     ->withTimestamps();
-    }
-
-    public function studentExamFields()
-    {
-        return $this->hasMany(StudentExamField::class);
-    }
-
-    public function studentStatuses()
-    {
-        return $this->hasMany(StudentStatus::class);
     }
 
     public function ranking()

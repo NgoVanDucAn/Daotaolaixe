@@ -39,7 +39,7 @@ class CourseController extends Controller
         } else {
             $vehicleType = 1;
         }
-        
+
         $listCourses = Course::whereHas('ranking', function ($query) use ($vehicleType) {
             $query->where('vehicle_type', $vehicleType);
         })->get();
@@ -101,7 +101,7 @@ class CourseController extends Controller
         }
 
         $courses = $query->latest()->get();
-        
+
         if ($request->filled('student_name') || $request->filled('student_code') || $request->filled('student_status') || $request->filled('learning_status') || $request->filled('only_debt')) {
             // Xử lý lọc theo học viên và các trường liên quan
             $filteredCourses = $courses->filter(function ($course) use ($request) {
@@ -210,7 +210,7 @@ class CourseController extends Controller
     {
         try {
             DB::beginTransaction();
-            
+
             $numberStudents = 0;
             $courseData = $request->except(['exam_fields', 'learning_fields', 'hours', 'km']);
             $courseData['number_students'] = $numberStudents;
@@ -227,7 +227,7 @@ class CourseController extends Controller
             }
             $courseData['curriculum_id'] = $curriculum->id;
             $course = Course::create($courseData);
-    
+
             if ($ranking->vehicle_type == 0) {
                 $allExamFieldIds = ExamField::whereIn('applies_to_all_rankings', [1,3])->pluck('id')->toArray();
                 $allLearningFieldIds = LearningField::where('applies_to_all_rankings', 1)->pluck('id')->toArray();
@@ -338,16 +338,16 @@ class CourseController extends Controller
                 'min_night_hours' => $ranking->min_night_hours,
                 'min_automatic_car_hours' => $ranking->min_automatic_car_hours,
             ]);
-    
+
             DB::commit();
-            
+
             return redirect()->route('courses.index')->with('success', 'Khóa học đã được cập nhật thành công.');
-    
+
         } catch (\Exception $e) {
             DB::rollBack();
-    
+
             Log::error('Lỗi khi cập nhật khóa học: ' . $e->getMessage());
-    
+
             return redirect()->back()->with('error', 'Có lỗi xảy ra khi cập nhật khóa học. Vui lòng thử lại.');
         }
     }
@@ -371,20 +371,26 @@ class CourseController extends Controller
             'sale_id' => 'nullable|exists:users,id',
             'note' => 'nullable|string',
         ]);
+
         try {
             DB::beginTransaction();
 
             $student = Student::findOrFail($request->student_id);
-            $course = Course::findOrFail($request->course_id);
+            $course  = Course::findOrFail($request->course_id);
             $ranking = $course->ranking;
 
+            // Lấy record course_student “ảo”
             $courseStudent = CourseStudent::where('student_id', $student->id)
                 ->where('course_id', 99999999)
                 ->first();
+
             if (!$courseStudent) {
                 throw new \Exception('Không tìm thấy bản ghi khóa học ảo của học viên.');
             }
+
             if (!$course->students->contains($student->id)) {
+
+                // Nếu khác ranking thì clone dữ liệu trước khi cập nhật
                 if ($course->ranking_id != $student->ranking_id) {
                     $cloneData = $courseStudent->replicate();
                     $cloneData->save();
@@ -394,64 +400,77 @@ class CourseController extends Controller
                 }
 
                 $updateData = [
-                    'course_id' => $course->id,
-                    'contract_date' => \Carbon\Carbon::parse($request->contract_date)->format('Y-m-d'),
-                    'teacher_id' => $request->learn_teacher_id ?? null,
-                    'stadium_id' => $request->stadium_id,
-                    'health_check_date' => \Carbon\Carbon::parse($request->health_check_date)->format('Y-m-d'),
-                    'sale_id' => $request->sale_id ?? $student->sale_id,
-                    'hours' => $ranking->hours ?? 0,
-                    'km' => $ranking->km ?? 0,
-                    'status' => 1,
-                    'tuition_fee' => $request->tuition_fee ?? $course->tuition_fee,
-                    'start_date' => $course->start_date,
-                    'end_date' => $course->end_date,
-                    'note' => $request->note,
-                    'updated_at' => now(),
+                    'course_id'          => $course->id,
+                    'contract_date'      => \Carbon\Carbon::parse($request->contract_date)->format('Y-m-d'),
+                    'teacher_id'         => $request->learn_teacher_id ?? null,
+                    'stadium_id'         => $request->stadium_id,
+                    'health_check_date'  => \Carbon\Carbon::parse($request->health_check_date)->format('Y-m-d'),
+                    'sale_id'            => $request->sale_id ?? $student->sale_id,
+                    'hours'              => $ranking->hours ?? 0,
+                    'km'                 => $ranking->km ?? 0,
+                    'status'             => 1,
+                    'tuition_fee'        => $request->tuition_fee ?? $course->tuition_fee,
+                    'start_date'         => $course->start_date,
+                    'end_date'           => $course->end_date,
+                    'note'               => $request->note,
+                    'updated_at'         => now(),
                 ];
 
                 if ($ranking && $ranking->vehicle_type == 1) {
                     $request->validate([
-                        'give_chip_hour' => 'nullable|date_format:H:i',
+                        'give_chip_hour'  => 'nullable|date_format:H:i',
                         'order_chip_hour' => 'nullable|date_format:H:i',
                     ]);
-                    $updateData['gifted_chip_hours'] = $request->give_chip_hour ?? '00:00';
+                    $updateData['gifted_chip_hours']  = $request->give_chip_hour  ?? '00:00';
                     $updateData['reserved_chip_hours'] = $request->order_chip_hour ?? '00:00';
                 }
 
+                // Cập nhật bản ghi course_student (từ ảo -> thật)
                 $courseStudent->update($updateData);
 
+                // === TẠO/SYNC BẢN GHI THEO course_student_id ===
+                $courseStudentId = $courseStudent->id;
+
+                // 1) Exam fields (student_exam_fields): dùng course_student_id
                 foreach ($course->examFields()->get() as $examField) {
-                    for ($i=1; $i < 5; $i++) {
-                        if ($i == 1 && $examField->is_practical != 1) {
-                            continue;
-                        }
-                
-                        if ($i == 2 && $examField->is_practical != 0) {
-                            continue;
-                        }
-                
-                        StudentExamField::updateOrCreate([
-                            'student_id' => $student->id,
-                            'exam_field_id' => $examField->id,
-                            'course_id' => $course->id,
-                            'type_exam' => $i
-                        ]);
+                    for ($i = 1; $i < 5; $i++) {
+                        // Giữ nguyên điều kiện phân loại LT/TH như cũ
+                        if ($i == 1 && $examField->is_practical != 1) continue;
+                        if ($i == 2 && $examField->is_practical != 0) continue;
+
+                        \App\Models\StudentExamField::updateOrCreate(
+                            [
+                                'course_student_id' => $courseStudentId,
+                                'exam_field_id'     => $examField->id,
+                                'type_exam'         => $i,
+                            ],
+                            [] // không có cột khác bắt buộc cập nhật
+                        );
                     }
                 }
 
+                // 2) Learning statuses (student_statuses): dùng course_student_id
                 foreach ($course->learningFields()->pluck('learning_fields.id') as $learningFieldId) {
-                    StudentStatus::updateOrCreate([
-                        'student_id' => $student->id,
-                        'learning_field_id' => $learningFieldId,
-                        'course_id' => $course->id,
-                    ]);
+                    \App\Models\StudentStatus::updateOrCreate(
+                        [
+                            'course_student_id'  => $courseStudentId,
+                            'learning_field_id'  => $learningFieldId,
+                        ],
+                        [] // thêm default nếu bạn có cột mặc định (hours/km=0) bằng fillable trong model/migration
+                    );
                 }
 
+                // Cập nhật thống kê số HV
                 Course::countAndUpdateStudents($course->id);
 
-                // --- Xử lý phí ---
-                $this->feeTransferService->handleFeeTransfer($student, $course, $courseStudent->id, $newCourseStudent ? $newCourseStudent->id : null, $updateData['tuition_fee']);
+                // --- Xử lý phí (giữ nguyên tham số) ---
+                $this->feeTransferService->handleFeeTransfer(
+                    $student,
+                    $course,
+                    $courseStudentId,
+                    $newCourseStudent ? $newCourseStudent->id : null,
+                    $updateData['tuition_fee']
+                );
             }
 
             DB::commit();
@@ -466,39 +485,43 @@ class CourseController extends Controller
     public function addStudents(Request $request)
     {
         $request->validate([
-            'student_id' => 'required|array',
-            'student_id.*' => 'exists:students,id',
-            'course_id' => 'required|exists:courses,id',
-            'tuition_fee' => 'required|array',
-            'tuition_fee.*' => 'required|string',
-            'health_check_date' => 'required|array',
-            'health_check_date.*' => 'required|date',
-            'contract_date' => 'required|array',
-            'contract_date.*' => 'required|date',
-            'stadium_id' => 'nullable|array',
-            'stadium_id.*' => 'nullable|exists:stadiums,id',
-            'learn_teacher_id' => 'nullable|array',
-            'learn_teacher_id.*' => 'nullable|exists:users,id',
-            'sale_id' => 'nullable|array',
-            'sale_id.*' => 'nullable|exists:users,id',
-            'note' => 'nullable|array',
+            'student_id'           => 'required|array',
+            'student_id.*'         => 'exists:students,id',
+            'course_id'            => 'required|exists:courses,id',
+            'tuition_fee'          => 'required|array',
+            'tuition_fee.*'        => 'required|string',
+            'health_check_date'    => 'required|array',
+            'health_check_date.*'  => 'required|date',
+            'contract_date'        => 'required|array',
+            'contract_date.*'      => 'required|date',
+            'stadium_id'           => 'nullable|array',
+            'stadium_id.*'         => 'nullable|exists:stadiums,id',
+            'learn_teacher_id'     => 'nullable|array',
+            'learn_teacher_id.*'   => 'nullable|exists:users,id',
+            'sale_id'              => 'nullable|array',
+            'sale_id.*'            => 'nullable|exists:users,id',
+            'note'                 => 'nullable|array',
         ]);
+
         try {
             DB::beginTransaction();
 
-            $course = Course::findOrFail($request->course_id);
+            $course  = Course::findOrFail($request->course_id);
             $ranking = $course->ranking;
 
             foreach ($request->student_id as $index => $studentId) {
                 $student = Student::findOrFail($studentId);
 
                 $courseStudent = CourseStudent::where('student_id', $student->id)
-                ->where('course_id', 99999999)
-                ->first();
+                    ->where('course_id', 99999999)
+                    ->first();
+
                 if (!$courseStudent) {
                     throw new \Exception('Không tìm thấy bản ghi khóa học ảo của học viên.');
                 }
+
                 if (!$course->students->contains($student->id)) {
+
                     if ($course->ranking_id != $student->ranking_id) {
                         $cloneData = $courseStudent->replicate();
                         $cloneData->save();
@@ -506,69 +529,78 @@ class CourseController extends Controller
                     } else {
                         $newCourseStudent = null;
                     }
-                
+
                     $updateData = [
-                        'course_id' => $course->id,
-                        'contract_date' => \Carbon\Carbon::parse($request->contract_date[$index])->format('Y-m-d'),
-                        'teacher_id' => $request->learn_teacher_id[$index],
-                        'stadium_id' => $request->stadium_id[$index] ?? null,
+                        'course_id'         => $course->id,
+                        'contract_date'     => \Carbon\Carbon::parse($request->contract_date[$index])->format('Y-m-d'),
+                        'teacher_id'        => $request->learn_teacher_id[$index] ?? null,
+                        'stadium_id'        => $request->stadium_id[$index] ?? null,
                         'health_check_date' => \Carbon\Carbon::parse($request->health_check_date[$index])->format('Y-m-d'),
-                        'sale_id' => $request->sale_id[$index] ?? $student->sale_id,
-                        'hours' => $ranking->hours ?? 0,
-                        'km' => $ranking->km ?? 0,
-                        'status' => 1,
-                        'tuition_fee' => (float)str_replace('.', '', $request->tuition_fee[$index]),
-                        'start_date' => $course->start_date,
-                        'end_date' => $course->end_date,
-                        'note' => $request->note[$index] ?? null,
+                        'sale_id'           => $request->sale_id[$index] ?? $student->sale_id,
+                        'hours'             => $ranking->hours ?? 0,
+                        'km'                => $ranking->km ?? 0,
+                        'status'            => 1,
+                        'tuition_fee'       => (float) str_replace('.', '', $request->tuition_fee[$index]),
+                        'start_date'        => $course->start_date,
+                        'end_date'          => $course->end_date,
+                        'note'              => $request->note[$index] ?? null,
                     ];
 
                     if ($ranking && $ranking->vehicle_type == 1) {
                         $request->validate([
-                            'give_chip_hour' => 'nullable|array',
+                            'give_chip_hour'   => 'nullable|array',
                             'give_chip_hour.*' => 'nullable|date_format:H:i',
-                            'order_chip_hour' => 'nullable|array',
-                            'order_chip_hour.*' => 'nullable|date_format:H:i',
+                            'order_chip_hour'  => 'nullable|array',
+                            'order_chip_hour.*'=> 'nullable|date_format:H:i',
                         ]);
-                        $pivotData['gifted_chip_hours'] = $request->give_chip_hour[$index] ?? '00:00';
-                        $pivotData['reserved_chip_hours'] = $request->order_chip_hour[$index] ?? '00:00';
+                        $updateData['gifted_chip_hours']  = $request->give_chip_hour[$index]  ?? '00:00';
+                        $updateData['reserved_chip_hours'] = $request->order_chip_hour[$index] ?? '00:00';
                     }
 
+                    // cập nhật record “ảo” thành record thật
                     $courseStudent->update($updateData);
 
-                    if (!$courseStudent) {
-                        throw new \Exception("Không tìm thấy bản ghi học viên khóa học cho học viên ID $studentId.");
-                    }
+                    // === TẠO/SYNC THEO course_student_id ===
+                    $courseStudentId = $courseStudent->id;
 
-                    // Tạo bản ghi cho các trường thi
+                    // (1) student_exam_fields
                     foreach ($course->examFields()->get() as $examField) {
                         for ($i = 1; $i < 5; $i++) {
                             if ($i == 1 && $examField->is_practical != 1) continue;
                             if ($i == 2 && $examField->is_practical != 0) continue;
 
-                            StudentExamField::updateOrCreate([
-                                'student_id' => $student->id,
-                                'exam_field_id' => $examField->id,
-                                'course_id' => $course->id,
-                                'type_exam' => $i
-                            ]);
+                            \App\Models\StudentExamField::updateOrCreate(
+                                [
+                                    'course_student_id' => $courseStudentId,
+                                    'exam_field_id'     => $examField->id,
+                                    'type_exam'         => $i,
+                                ],
+                                []
+                            );
                         }
                     }
 
-                    // Tạo trạng thái học tập cho từng lĩnh vực học
+                    // (2) student_statuses
                     foreach ($course->learningFields()->pluck('learning_fields.id') as $learningFieldId) {
-                        StudentStatus::updateOrCreate([
-                            'student_id' => $student->id,
-                            'learning_field_id' => $learningFieldId,
-                            'course_id' => $course->id,
-                        ]);
+                        \App\Models\StudentStatus::updateOrCreate(
+                            [
+                                'course_student_id' => $courseStudentId,
+                                'learning_field_id' => $learningFieldId,
+                            ],
+                            []
+                        );
                     }
 
-                    // Cập nhật thống kê học viên
                     Course::countAndUpdateStudents($course->id);
 
-                    // Xử lý phí
-                    $this->feeTransferService->handleFeeTransfer($student, $course, $courseStudent->id, $newCourseStudent ? $newCourseStudent->id : null, $updateData['tuition_fee']);
+                    // Phí
+                    $this->feeTransferService->handleFeeTransfer(
+                        $student,
+                        $course,
+                        $courseStudentId,
+                        $newCourseStudent ? $newCourseStudent->id : null,
+                        $updateData['tuition_fee']
+                    );
                 }
             }
 
@@ -609,7 +641,7 @@ class CourseController extends Controller
 
         return response()->json($students);
     }
-    
+
     public function courseAlls()
     {
         $courses = Course::with('ranking')->get();
