@@ -135,6 +135,11 @@ class Course extends Model
                     ->withTimestamps();
     }
 
+    public function courseStudents()
+    {
+        return $this->hasMany(CourseStudent::class);
+    }
+
     public static function countAndUpdateStudents($courseId)
     {
         $course = Course::findOrFail($courseId);

@@ -53,7 +53,18 @@ class CourseController extends Controller
         $learningFields = LearningField::all();
         $studentsAll = Student::all();
         $sales = User::role('salesperson')->with('roles')->get();
-        $query = Course::where('id', '!=', 99999999)->with(['curriculum', 'ranking:id,name,vehicle_type', 'learningFields', 'examFields', 'students.fees', 'students.studentStatuses', 'students.studentExamFields']);
+        $query = Course::where('id', '!=', 99999999)
+            ->with([
+                'curriculum',
+                'ranking:id,name,vehicle_type',
+                'learningFields',
+                'examFields',
+                // Load students + fees + courseStudents + exam fields theo course_student
+                'students' => fn ($q) => $q->with([
+                    'fees',
+                    'courseStudents.studentExamFields',
+                ]),
+            ]);
         $coursesAll = Course::all();
 
         // Lọc theo mã khóa học
@@ -175,23 +186,37 @@ class CourseController extends Controller
         // Tính toán thêm như remaining_fee, total_paid, etc.
         foreach ($courses as $course) {
             foreach ($course->students as $student) {
-                $tuitionFee = $course->students()->where('student_id', $student->id)->first()->pivot->tuition_fee;
+                // Lấy course_student_id từ pivot
+                $courseStudentId = $student->pivot->id;
+
+                // 1) Học phí
+                $tuitionFee   = $course->students()->where('student_id', $student->id)->first()->pivot->tuition_fee;
+
+                // Nếu bảng fees đã chuyển sang course_student_id, dùng dòng dưới:
+                // $feesForCourse = $student->fees->where('course_student_id', $courseStudentId);
+
+                // Nếu Fees CHƯA chuyển, tạm giữ cách theo course_id:
                 $feesForCourse = $student->fees->where('course_id', $course->id);
-                $totalPaid = $feesForCourse->sum('amount');
 
+                $totalPaid     = $feesForCourse->sum('amount');
                 $student->remaining_fee = $tuitionFee - $totalPaid;
-                $student->total_paid = $totalPaid;
-                $student->tuition_fee = $tuitionFee;
+                $student->total_paid    = $totalPaid;
+                $student->tuition_fee   = $tuitionFee;
 
-                $statuses = $student->studentStatuses->where('course_id', $course->id);
+                // 2) Giờ/Km: lấy từ student_statuses theo course_student_id
+                $statuses = StudentStatus::where('course_student_id', $courseStudentId)->get();
                 $student->total_hours = $statuses->sum('hours');
-                $student->total_km = $statuses->sum('km');
+                $student->total_km    = $statuses->sum('km');
 
-                $student->exam_results = $student->studentExamFields
-                    ->where('course_id', $course->id)
-                    ->values();
+                // 3) Kết quả thi: lấy từ student_exam_fields theo course_student_id
+                $student->exam_results = StudentExamField::where('course_student_id', $courseStudentId)->get();
+                // Nếu cần tách theo type_exam:
+                // $student->exam_results_lt = $student->exam_results->where('type_exam', 1)->values();
+                // $student->exam_results_th = $student->exam_results->where('type_exam', 2)->values();
+                // $student->exam_results_tn = $student->exam_results->where('type_exam', 3)->values();
             }
         }
+
 
         $stadiums = Stadium::all();
         return view('admin.courses.index', compact('coursesAll', 'courses', 'teachers', 'rankings', 'stadiums', 'examFields', 'learningFields', 'studentsAll', 'sales'));

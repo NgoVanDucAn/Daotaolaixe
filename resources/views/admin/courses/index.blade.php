@@ -15,24 +15,24 @@
             max-height: 70vh;
         }
 
-        .scroll-container::-webkit-scrollbar, 
+        .scroll-container::-webkit-scrollbar,
         .table-container::-webkit-scrollbar {
             height: 8px;
         }
 
-        .scroll-container::-webkit-scrollbar-track, 
+        .scroll-container::-webkit-scrollbar-track,
         .table-container::-webkit-scrollbar-track {
             background: #e9ecef;
             border-radius: 4px;
         }
 
-        .scroll-container::-webkit-scrollbar-thumb, 
+        .scroll-container::-webkit-scrollbar-thumb,
         .table-container::-webkit-scrollbar-thumb {
             background: #6c757d;
             border-radius: 4px;
         }
 
-        .scroll-container::-webkit-scrollbar-thumb:hover, 
+        .scroll-container::-webkit-scrollbar-thumb:hover,
         .table-container::-webkit-scrollbar-thumb:hover {
             background: #495057;
         }
@@ -221,9 +221,9 @@
     <div class="d-flex justify-content-between align-items-center">
         <a
             {{-- href="{{ route('courses.create') }}" --}}
-            type="button" 
+            type="button"
             class="btn"
-            style="color: #3b82f6; border: 1px solid #3b82f6; padding: 4px 8px;" 
+            style="color: #3b82f6; border: 1px solid #3b82f6; padding: 4px 8px;"
             data-bs-toggle="modal"
             data-bs-target="#courseCreateModal"
         >
@@ -232,7 +232,7 @@
     </div>
 @endsection
 
-<a 
+<a
     {{-- href="{{ route('courses.create') }}"  --}}
     class="btn btn-primary rounded-circle d-flex align-items-center justify-content-center position-fixed"
     style="width: 40px; height: 40px; font-size: 30px; bottom: 3%; right: 60px; z-index: 99;"
@@ -283,7 +283,7 @@
                             </td> --}}
                             <td>{{ ++$key }}</td>
                             <td style="min-width: 100px;">
-                                <a 
+                                <a
                                     data-student='$course->students'
                                     style="font-weight: 600; color: #4C9AFF"
                                     href="{{ $course->ranking?->vehicle_type == 1 ? route('students.index-car', ['course_id' => $course->id]) : route('students.index-moto', ['course_id' => $course->id]) }}"
@@ -298,7 +298,7 @@
                             <td>{{ $course->dat_date ? $course->dat_date->format('d/m/Y') : '' }}</td>
                             <td>{{ $course->start_date ? $course->start_date->format('d/m/Y') : '' }}</td>
                             <td>{{ $course->end_date ? $course->end_date->format('d/m/Y') : '' }}</td>
-                            
+
                             {{-- <td>{{ number_format($course->tuition_fee) }} VND</td> --}}
                             <td>{{ number_format($course->number_students) ?? 0 }}</td>
                             {{-- <td>{{ $course->status == 1 ? 'Hoạt động' : 'Ngừng hoạt động' }}</td> --}}
@@ -319,7 +319,7 @@
                                     >
                                         <i class="fa-solid fa-plus"></i>
                                     </a>
-                                    <a 
+                                    <a
                                         {{-- href="{{ route('courses.edit', $course->id) }}"  --}}
                                         href="javascript:void(0)"
                                         class="btn btn-sm btn-warning btn-edit-course"
@@ -434,23 +434,27 @@
                                                         </td>
                                                         @foreach($course->examFields as $exam)
                                                             @php
-                                                                $result = $student->studentExamFields->where('exam_field_id', $exam->id)->where('course_id', $course->id)->first();
+                                                                // Lấy bản ghi course_student tương ứng với khóa hiện tại
+                                                                $cs = $student->courseStudents->firstWhere('course_id', $course->id);
+
+                                                                // Lấy kết quả thi theo exam_field và course_student_id
+                                                                $result = $cs?->studentExamFields->firstWhere('exam_field_id', $exam->id);
                                                             @endphp
+
                                                             <td class="text-center align-middle">
                                                                 <button class="btn btn-sm btn-link p-0 m-0 open-exam-modal"
-                                                                    data-student-id="{{ $student->id }}"
-                                                                    data-course-id="{{ $course->id }}"
-                                                                    data-exam-field-id="{{ $exam->id }}"
-                                                                    title="Xem chi tiết kết quả thi">
-                                                                    {!! 
-                                                                        match($result->status ?? null) {
-                                                                            0 => '<i class="fa-solid fa-hourglass-start text-warning"></i>',
-                                                                            1 => '<i class="fa-solid fa-square-check text-success"></i>',
-                                                                            default => '<i class="fa-solid fa-hourglass-start text-warning"></i>',
-                                                                        }
-                                                                    !!}
+                                                                        data-student-id="{{ $student->id }}"
+                                                                        data-course-id="{{ $course->id }}"
+                                                                        data-exam-field-id="{{ $exam->id }}"
+                                                                        title="Xem chi tiết kết quả thi">
+                                                                    {!! match($result->status ?? null) {
+                                                                        0 => '<i class="fa-solid fa-hourglass-start text-warning"></i>',
+                                                                        1 => '<i class="fa-solid fa-square-check text-success"></i>',
+                                                                        default => '<i class="fa-solid fa-hourglass-start text-warning"></i>',
+                                                                    } !!}
                                                                 </button>
                                                             </td>
+
                                                         @endforeach
                                                         <td>
                                                             <button class="btn btn-sm btn-info"
@@ -560,7 +564,7 @@
                                 <div class="col-12 col-md-6 col-lg-3 mb-3">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <label for="student_id" class="form-label">Chọn Học Viên</label>
-                                        <a 
+                                        <a
                                             href="javascript:void(0)"
                                             class="text-primary add-more-student"
                                             style="font-size: 20px"
@@ -571,7 +575,7 @@
                                             +
                                         </a>
                                     </div>
-                                   
+
                                     <select name="student_id" class="form-select add_student_id">
                                         <option value=""></option>
                                         {{-- @foreach($studentsAll as $student)
@@ -580,24 +584,24 @@
                                             </option>
                                         @endforeach --}}
                                     </select>
-                                    
+
                                     @error('sale_support')
                                         <div class="text-danger">{{ $message }}</div>
                                     @enderror
                                 </div>
-                                
+
                                 <div class="col-12 col-md-6 col-lg-3 mb-3">
                                     <label for="tuition_fee" class="form-label">Học phí</label>
                                     <input type="text" name="tuition_fee" class="form-control currency-input tuition_fee" required>
                                     @error('tuition_fee') <div class="text-danger">{{ $message }}</div> @enderror
                                 </div>
-    
+
                                 <div class="col-12 col-md-6 col-lg-3 mb-3">
                                     <label for="health_check_date" class="form-label">Ngày khám sức khỏe</label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="dd/mm/yyyy"
-                                        name="health_check_date" 
+                                        name="health_check_date"
                                         class="form-control real-date health_check_date"
                                         autocomplete="off"
                                         required
@@ -626,7 +630,7 @@
                                         </div>
                                     </div>
                                 </div> --}}
-    
+
                                 <div class="col-12 col-md-6 col-lg-3 mb-3">
                                     <div class="form-group">
                                         <label for="learn_teacher_id" class="form-label">Giáo viên</label>
@@ -643,7 +647,7 @@
                                         @enderror
                                     </div>
                                 </div>
-                                
+
                                 <div class="col-12 col-md-6 col-lg-3 mb-3">
                                     <div class="form-group">
                                         <label for="sale_id" class="form-label">Nhân viên Sale</label>
@@ -750,27 +754,27 @@
                             <div class="col-12 col-md-6">
                                 <div class="form-group position-relative">
                                     <label for="cabin_date" class="form-label">Ngày học Cabin</label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="dd/mm/yyyy"
-                                        name="cabin_date" 
+                                        name="cabin_date"
                                         id="cabin_date"
-                                        class="form-control real-date" autocomplete="off" 
+                                        class="form-control real-date" autocomplete="off"
                                         value="{{ old('cabin_date') ? \Carbon\Carbon::parse(old('cabin_date'))->format('d/m/Y') : '' }}"
                                     >
                                     @error('cabin_date') <div class="text-danger">{{ $message }}</div> @enderror
                                 </div>
                             </div>
-    
+
                             <div class="col-12 col-md-6">
                                 <div class="form-group position-relative">
                                     <label for="dat_date" class="form-label">Ngày học DAT</label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="dd/mm/yyyy"
                                         name="dat_date"
                                         id="dat_date"
-                                        class="form-control real-date" autocomplete="off" 
+                                        class="form-control real-date" autocomplete="off"
                                         value="{{ old('dat_date') ? \Carbon\Carbon::parse(old('dat_date'))->format('d/m/Y') : '' }}"
                                     >
                                     @error('dat_date') <div class="text-danger">{{ $message }}</div> @enderror
@@ -781,11 +785,11 @@
                         <div class="col-12 col-md-6">
                             <div class="form-group position-relative">
                                 <label for="date_bci" class="form-label">Ngày BCI</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     placeholder="dd/mm/yyyy"
-                                    name="date_bci" 
-                                    class="form-control real-date" autocomplete="off" 
+                                    name="date_bci"
+                                    class="form-control real-date" autocomplete="off"
                                     value="{{ old('date_bci') ? \Carbon\Carbon::parse(old('date_bci'))->format('d/m/Y') : '' }}"
                                     required
                                 >
@@ -796,26 +800,26 @@
                         <div class="col-12 col-md-6">
                             <div class="form-group position-relative">
                                 <label for="start_date" class="form-label">Ngày bắt đầu</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     placeholder="dd/mm/yyyy"
-                                    name="start_date" 
-                                    class="form-control real-date" autocomplete="off" 
+                                    name="start_date"
+                                    class="form-control real-date" autocomplete="off"
                                     value="{{ old('start_date') ? \Carbon\Carbon::parse(old('start_date'))->format('d/m/Y') : '' }}"
                                     required
                                 >
                                 @error('start_date') <div class="text-danger">{{ $message }}</div> @enderror
                             </div>
                         </div>
-    
+
                         <div class="col-12 col-md-6">
                             <div class="form-group position-relative">
                                 <label for="end_date" class="form-label">Ngày kết thúc</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     placeholder="dd/mm/yyyy"
-                                    name="end_date" 
-                                    class="form-control real-date" autocomplete="off" 
+                                    name="end_date"
+                                    class="form-control real-date" autocomplete="off"
                                     value="{{ old('end_date') ? \Carbon\Carbon::parse(old('end_date'))->format('d/m/Y') : '' }}"
                                     required
                                     >
@@ -867,11 +871,11 @@
                                     @foreach($learningFields as $field)
                                         <div class="col-md-4">
                                             <div class="form-check">
-                                                <input 
-                                                    type="checkbox" 
-                                                    class="form-check-input" 
-                                                    name="learning_fields[]" 
-                                                    value="{{ $field->id }}" 
+                                                <input
+                                                    type="checkbox"
+                                                    class="form-check-input"
+                                                    name="learning_fields[]"
+                                                    value="{{ $field->id }}"
                                                     id="learning_field_{{ $field->id }}"
                                                     {{ (is_array(old('learning_fields')) && in_array($field->id, old('learning_fields'))) ? 'checked' : '' }}
                                                     onclick="toggleHourKmFields(this, 'create')"
@@ -946,32 +950,32 @@
                                     @error('ranking_id') <div class="text-danger">{{ $message }}</div> @enderror
                                 </div>
                             </div>
-                            
+
                             <div class="row edit-container-form-car" style="display: none; margin: 0; padding: 0">
                                 <div class="col-12 col-md-6">
                                     <div class="form-group position-relative">
                                         <label for="cabin_date" class="form-label">Ngày học Cabin</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             placeholder="dd/mm/yyyy"
-                                            name="cabin_date" id="edit_cabin_date" 
-                                            class="form-control real-date" autocomplete="off" 
+                                            name="cabin_date" id="edit_cabin_date"
+                                            class="form-control real-date" autocomplete="off"
                                             value="{{ old('cabin_date') ? \Carbon\Carbon::parse(old('cabin_date'))->format('d/m/Y') : \Carbon\Carbon::parse($course->cabin_date)->format('d/m/Y') }}"
                                             required
                                         >
                                         @error('cabin_date') <div class="text-danger">{{ $message }}</div> @enderror
                                     </div>
                                 </div>
-        
+
                                 <div class="col-12 col-md-6">
                                     <div class="form-group position-relative">
                                         <label for="dat_date" class="form-label">Ngày học DAT</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             placeholder="dd/mm/yyyy"
-                                            name="dat_date" 
-                                            id="edit_dat_date" 
-                                            class="form-control real-date" autocomplete="off" 
+                                            name="dat_date"
+                                            id="edit_dat_date"
+                                            class="form-control real-date" autocomplete="off"
                                             value="{{ old('dat_date') ? \Carbon\Carbon::parse(old('dat_date'))->format('d/m/Y') : \Carbon\Carbon::parse($course->dat_date)->format('d/m/Y') }}"
                                             required
                                         >
@@ -983,11 +987,11 @@
                             <div class="col-12 col-md-6">
                                 <div class="form-group position-relative">
                                     <label for="date_bci" class="form-label">Ngày BCI</label>
-                                    <input 
-                                        type="text" 
-                                        placeholder="dd/mm/yyyy" 
-                                        name="date_bci" 
-                                        class="form-control real-date" autocomplete="off" 
+                                    <input
+                                        type="text"
+                                        placeholder="dd/mm/yyyy"
+                                        name="date_bci"
+                                        class="form-control real-date" autocomplete="off"
                                         value="{{ old('date_bci') ? \Carbon\Carbon::parse(old('date_bci'))->format('d/m/Y') : \Carbon\Carbon::parse($course->date_bci)->format('d/m/Y') }}"
                                         required
                                     >
@@ -998,11 +1002,11 @@
                             <div class="col-12 col-md-6">
                                 <div class="form-group position-relative">
                                     <label for="start_date" class="form-label">Ngày bắt đầu</label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="dd/mm/yyyy"
-                                        name="start_date" 
-                                        class="form-control real-date" autocomplete="off" 
+                                        name="start_date"
+                                        class="form-control real-date" autocomplete="off"
                                         value="{{ old('start_date') ? \Carbon\Carbon::parse(old('start_date'))->format('d/m/Y') : \Carbon\Carbon::parse($course->start_date)->format('d/m/Y') }}"
                                         required
                                     >
@@ -1013,18 +1017,18 @@
                             <div class="col-12 col-md-6">
                                 <div class="form-group position-relative">
                                     <label for="end_date" class="form-label">Ngày kết thúc</label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="dd/mm/yyyy"
-                                        name="end_date" 
-                                        class="form-control real-date" autocomplete="off" 
+                                        name="end_date"
+                                        class="form-control real-date" autocomplete="off"
                                         value="{{ old('end_date') ? \Carbon\Carbon::parse(old('end_date'))->format('d/m/Y') : \Carbon\Carbon::parse($course->end_date)->format('d/m/Y') }}"
                                         required
                                     >
                                     @error('end_date') <div class="text-danger">{{ $message }}</div> @enderror
                                 </div>
                             </div>
-                            
+
                             <div class="col-12 col-md-6">
                                 <div class="form-group">
                                     <label for="tuition_fee" class="form-label">Học phí</label>
@@ -1058,7 +1062,7 @@
 
                                 const ranking = rankings.find(item => item.id == old.ranking_id)
                                 ranking.vehicle_type == 1 ? $('.edit-container-form-car').show() : $('.edit-container-form-car').hide()
-                                
+
                                 myModal.show();
                             });
                         </script>
@@ -1110,10 +1114,10 @@
                                         </div>
                                         <div class="col-6 col-md-4 mb-3 position-relative">
                                             <label for="contract_date" class="form-label">Ngày ký hợp đồng</label>
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 placeholder="dd/mm/yyyy"
-                                                name="contract_date" 
+                                                name="contract_date"
                                                 class="form-control real-date" autocomplete="off"
                                                 value="{{ old('contract_date') ? \Carbon\Carbon::parse(old('contract_date'))->format('d/m/Y') : '' }}"
                                                 required
@@ -1128,10 +1132,10 @@
                                         </div>
                                         <div class="col-6 col-md-4 mb-3 position-relative">
                                             <label for="health_check_date" class="form-label">Ngày khám sức khỏe</label>
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 placeholder="dd/mm/yyyy"
-                                                name="health_check_date" 
+                                                name="health_check_date"
                                                 class="form-control real-date" autocomplete="off"
                                                 value="{{ old('health_check_date') ? \Carbon\Carbon::parse(old('health_check_date'))->format('d/m/Y') : '' }}"
                                                 required
@@ -1330,7 +1334,7 @@
 
             // Cập nhật colspan của dòng chi tiết
             const detailRows = document.querySelectorAll('[id^="details-student-"], [id^="details-"]');
-            
+
             detailRows.forEach(row => {
                 const colspanElement = row.querySelector('[id="dynamic-colspan"]');
                 if (colspanElement) {
@@ -1346,7 +1350,7 @@
 @section('js')
 
  <script>
-    $(document).ready(function() {   
+    $(document).ready(function() {
        $('#ranking_id').select2({
            placeholder: "-- Chọn hạng GPLX --",
            allowClear: true,
@@ -1373,7 +1377,7 @@
                 if (tuitionInput) {
                     tuitionInput.value = formatNumber(rankingData?.fee_ranking ?? 0);
                 }
-                
+
                 if(rankingData?.vehicle_type == 0){
                     $('.container-form-car').hide();
                     $('#cabin_date').prop('disabled', true);
@@ -1469,13 +1473,13 @@
             student = null;
         }
         const rankings = $('#addCourseStudentModal').data('student-ranking');
-        
+
         const rankingOfStudent =student && rankings.find(item => item.id == student.ranking_id)
 
         const selectedStudent = {
             ...student,
             rankingOfStudent
-        }; 
+        };
 
         if (student && courseRanking) {
             if (courseRanking == student?.ranking_id) {
@@ -1602,13 +1606,13 @@
                 } else {
                     $('.container-chip-hour').hide();
                 }
-                
+
                 modal.querySelector('.modal-title').textContent = `Thêm học viên vào khóa học ${this.dataset.nameCourse}`;
-                
+
                 $('#addCourseStudentModal').data('student-ranking', rankings);
                 $('#addCourseStudentModal').data('all-students', allStudents);
                 $('#addCourseStudentModal').data('id-course', this.dataset.id);
-                
+
 
                 $('.container-common select[name="student_id"]').each(function () {
                     checkSelected($(this).closest('.container-common'));
@@ -1664,7 +1668,7 @@
             // Gắn lại nút +
             if ($clone.find('.add-more-student').length === 0) {
                 $clone.find('.form-label[for="student_id"]').parent().append(`
-                    <a 
+                    <a
                         href="javascript:void(0)"
                         class="text-primary add-more-student"
                         style="font-size: 20px"
@@ -1709,12 +1713,12 @@
                 })
                 const modal = document.getElementById('courseEditModal');
                 const rankings = JSON.parse(this.dataset.rankings);
-                
+
                 const rankingId = this.dataset.ranking_id
                 const valueRanking = rankings.find(item => item.id == rankingId)
 
                 $('#edit_ranking_id').val(rankingId).trigger('change');
-                
+
                 if(valueRanking.vehicle_type == 1){
                     $('.edit-container-form-car').show();
                     $('#edit_cabin_date').prop('disabled', false);
@@ -1724,7 +1728,7 @@
                     $('#edit_cabin_date').prop('disabled', true);
                     $('#edit_dat_date').prop('disabled', true);
                 }
-                
+
                 $('#edit_ranking_id').on('change', function () {
                     const selectedOption = $(this).find('option:selected');
                     const rankingData = selectedOption.data('edit-ranking');
@@ -1732,7 +1736,7 @@
                     if (tuitionInput) {
                         tuitionInput.value = formatNumber(rankingData?.fee_ranking ?? 0);
                     }
-                    
+
                     if(rankingData?.vehicle_type == 0){
                         $('.edit-container-form-car').hide();
                         $('#edit_cabin_date').prop('disabled', true);
@@ -1756,14 +1760,14 @@
                 modal.querySelector('input[name="tuition_fee"]').value = formatNumber(this.dataset.tuition_fee);
                 modal.querySelector('input[name="decision_kg"]').value = this.dataset.decision_kg;
                 modal.querySelector('#duration_days').value = this.dataset.durationDays;
-    
+
                 // Đổi action form và thêm method PUT
                 const form = modal.querySelector('form');
                 form.action = `/courses/${this.dataset.id}`;
                 if (!form.querySelector('input[name="_method"]')) {
                     form.insertAdjacentHTML('beforeend', '<input type="hidden" name="_method" value="PUT">');
                 }
-    
+
                 // Đổi tiêu đề modal
                 modal.querySelector('.modal-title').textContent = 'Chỉnh sửa khóa học';
             });
@@ -1805,9 +1809,9 @@
             const courseId = button.dataset.courseId;
             const modal = new bootstrap.Modal(document.getElementById('studyDetailsModal'));
             const content = document.getElementById('study-details-content');
-        
+
             content.innerHTML = '<p>Đang tải dữ liệu...</p>';
-        
+
             fetch(`/students/${studentId}/study-details/${courseId}`)
                 .then(response => response.json())
                 .then(data => {
@@ -1817,23 +1821,23 @@
                     content.innerHTML = '<p class="text-danger">Lỗi tải dữ liệu.</p>';
                     console.error(error);
                 });
-        
+
             modal.show();
         }
-        
+
         function renderStudyDetails(groups) {
             const container = document.getElementById('study-details-content');
             container.innerHTML = '';
-        
+
             if (Object.keys(groups).length === 0) {
                 container.innerHTML = '<p>Không có dữ liệu lịch học.</p>';
                 return;
             }
-        
+
             Object.values(groups).forEach(group => {
                 const groupEl = document.createElement('div');
                 groupEl.classList.add('mb-4');
-        
+
                 groupEl.innerHTML = `
                     <h5>${group.learning_field_name || 'Chưa xác định'}</h5>
                     <p><strong>Tổng giờ:</strong> ${group.total_hours} giờ | <strong>Tổng km:</strong> ${group.total_km} km</p>
@@ -1860,7 +1864,7 @@
                         </tbody>
                     </table>
                 `;
-        
+
                 container.appendChild(groupEl);
             });
         }
@@ -1916,20 +1920,20 @@
             });
         });
         const buttons = document.querySelectorAll('.toggle-detail');
-    
+
         buttons.forEach(button => {
             button.addEventListener('click', function (e) {
                 e.stopPropagation();
-    
+
                 const courseId = this.getAttribute('data-course-id');
                 const currentDetailRow = document.getElementById('details-row-' + courseId);
                 const currentMainRow = document.querySelector(`.course-main-row[data-course-id="${courseId}"]`);
-    
+
                 const allDetailRows = document.querySelectorAll('.course-detail-row');
                 const allMainRows = document.querySelectorAll('.course-main-row');
-    
+
                 const isOpen = currentDetailRow.classList.contains('show');
-    
+
                 if (!isOpen) {
                     // Đóng tất cả các chi tiết
                     allDetailRows.forEach(row => {
@@ -1954,7 +1958,7 @@
                 }
             });
         });
-    
+
         document.addEventListener('click', function (e) {
             if (isModalActive) return;
             const isInsideToggle = e.target.closest('.toggle-detail');

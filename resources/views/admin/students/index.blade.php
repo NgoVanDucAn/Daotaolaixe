@@ -45,7 +45,7 @@
                         @endforeach
                     </select>
                 </div>
-                
+
                 <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-3 col-xxl-2 mb-2 mt-2">
                     <label class="form-label fw-bold">Nguồn khách</label>
                     <select name="lead_source_id" class="form-select">
@@ -171,7 +171,7 @@
                                 @if ($student->card_id)
                                     {{ $student->card_id }}
                                 @else
-                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#updateCardModal" 
+                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#updateCardModal"
                                         onclick='setStudentId({{ $student->id }}, {!! json_encode($student->name) !!}, {!! json_encode($student->student_code) !!})'>
                                         Gán
                                     </button>
@@ -284,7 +284,7 @@
                                                                         data-course-id="{{ $course->id }}"
                                                                         data-exam-field-id="{{ $exam->id }}"
                                                                         title="Xem chi tiết kết quả thi">
-                                                                        {!! 
+                                                                        {!!
                                                                             match($result->status ?? null) {
                                                                                 0 => '<i class="fa-solid fa-hourglass-start text-warning"></i>',
                                                                                 1 => '<i class="fa-solid fa-square-check text-success"></i>',
@@ -307,14 +307,14 @@
                                                         </td>
                                                         <td>{{ $totalKm[$student->id][$course->id] ?? 0 }}/{{ $course->km ?? '-' }}</td>
                                                         <td>
-                                                            @if(isset($remainingFees[$student->id][$course->id]))    
+                                                            @if(isset($remainingFees[$student->id][$course->id]))
                                                                 {{ number_format($course->pivot->tuition_fee, 0, ',', '.') }} VND</td>
                                                             @else
                                                                 0 VND
                                                             @endif
                                                         </td>
                                                         <td>
-                                                            @if(isset($remainingFees[$student->id][$course->id]))    
+                                                            @if(isset($remainingFees[$student->id][$course->id]))
                                                                 {{ number_format($courseFees[$student->id][$course->id], 0, ',', '.') }} VND</td>
                                                             @else
                                                                 0 VND
@@ -352,7 +352,7 @@
                                         <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addActivitieModal" data-student-id="{{ $student->id }}" data-student-name="{{ $student->name }} - {{ $student->student_code }}">
                                             Thêm Lịch Học
                                         </button>
-                                    </div>                            
+                                    </div>
                                     @if($student->calendars->isNotEmpty())
                                         <table class="table table-bordered mt-1">
                                             <thead>
@@ -440,9 +440,9 @@
     <div class="d-flex justify-content-between align-items-center">
         <a
             href="{{ route('students.create') }}"
-            type="button" 
+            type="button"
             class="btn"
-            style="color: #3b82f6; border: 1px solid #3b82f6; padding: 4px 8px;" 
+            style="color: #3b82f6; border: 1px solid #3b82f6; padding: 4px 8px;"
         >
             <span style="font-size: 20px; margin:0 4px 2px 0;">+</span> <span>Thêm học viên</span>
         </a>
@@ -457,7 +457,7 @@
             style="width: 40px; height: 40px; font-size: 30px; bottom: 3%; right: 60px; z-index: 99;">
                 +
         </a>
-        <form method="GET" action="{{ route('students.index') }}" class="row">        
+        <form method="GET" action="{{ route('students.index') }}" class="row">
             <div class="mb-2 row">
                 <div class="col-12 col-md-4 col-lg-3 mb-2 mt-2">
                     <label class="form-label fw-bold">Tên học viên</label>
@@ -474,22 +474,22 @@
 
                 <div class="col-6 col-lg-3 col-md-4 mb-2 mt-2 position-relative">
                     <label class="form-label fw-bold">Ngày bắt đầu</label>
-                    <input 
-                        type="text" 
-                        placeholder="dd/mm/yyyy" 
-                        class="form-control real-date mb-2" 
-                        name="created_from" 
+                    <input
+                        type="text"
+                        placeholder="dd/mm/yyyy"
+                        class="form-control real-date mb-2"
+                        name="created_from"
                         autocomplete="off"
                         value="{{ request('created_from') ? \Carbon\Carbon::parse(request('created_from'))->format('d/m/Y') : '' }}"
                     >
                 </div>
                 <div class="col-6 col-lg-3 col-md-4 mb-2 mt-2 position-relative">
                     <label class="form-label fw-bold">Ngày kết thúc</label>
-                    <input 
-                        type="text" 
-                        placeholder="dd/mm/yyyy" 
-                        class="form-control real-date" autocomplete="off" 
-                        name="created_to" 
+                    <input
+                        type="text"
+                        placeholder="dd/mm/yyyy"
+                        class="form-control real-date" autocomplete="off"
+                        name="created_to"
                         value="{{ request('created_to') ? \Carbon\Carbon::parse(request('created_to'))->format('d/m/Y') : '' }}"
                     >
                 </div>
@@ -520,8 +520,8 @@
                 $lyThuyetExams = $exams->where('type_label', 'Lý thuyết');
                 $thucHanhExams = $exams->where('type_label', 'Thực hành');
                 $totNghiepExams = $exams->where('type_label', 'Tốt nghiệp');
-                $totalExamColumns = max($lyThuyetExams->count(), 1) 
-                      + max($thucHanhExams->count(), 1) 
+                $totalExamColumns = max($lyThuyetExams->count(), 1)
+                      + max($thucHanhExams->count(), 1)
                       + max($totNghiepExams->count(), 1);
             @endphp
 
@@ -564,7 +564,7 @@
                             <td>{{ $student->phone }}</td>
                             <td>{{ $student->identity_card ?? '--' }}</td>
                             <td class="text-start" style="min-width: 150px;">{{ $student->address }}</td>
-                
+
                             {{-- Ngày khám sức khỏe: lấy từ khóa học đầu tiên nếu có --}}
                             <td>
                                 @if($student->courses->isNotEmpty())
@@ -573,13 +573,13 @@
                                     <span class="badge bg-secondary">Chưa tham gia học</span>
                                 @endif
                             </td>
-                
+
                             {{-- Thẻ học viên --}}
                             <td>
                                 @if ($student->card_id)
                                     {{ $student->card_id }}
                                 @else
-                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#updateCardModal" 
+                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#updateCardModal"
                                         onclick='setStudentId({{ $student->id }}, {!! json_encode($student->name) !!}, {!! json_encode($student->student_code) !!})'>
                                         Gán
                                     </button>
@@ -610,7 +610,7 @@
                                     <span class="badge bg-secondary">Chưa tham gia học</span>
                                 @endif
                             </td>
-                
+
                             {{-- Xếp hạng khóa học --}}
                             <td>
                                 @if($student->courses->isNotEmpty())
@@ -627,8 +627,8 @@
                                     <span class="badge bg-secondary">Chưa tham gia học</span>
                                 @endif
                             </td>
-                            
-                
+
+
                             {{-- Trạng thái --}}
                             <td>
                                 @if ($student->status == 'active')
@@ -637,10 +637,10 @@
                                     <span class="badge bg-success">Nghỉ</span>
                                 @endif
                             </td>
-                
+
                             {{-- Ngày tạo --}}
                             <td>{{ $student->created_at->format('d/m/Y') }}</td>
-                
+
                             {{-- Hành động --}}
                             <td class="text-nowrap">
                                 <a href="{{ route('students.show', $student->id) }}" class="btn btn-sm btn-info m-1" style="padding: 2px 12px;">
@@ -755,7 +755,7 @@
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
                                 </div>
-        
+
                                 <!-- Trường Tên Lịch -->
                                 <div class="form-group mb-3">
                                     <label for="name" class="form-label">Tên Lịch</label>
@@ -764,7 +764,7 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-        
+
                                 <!-- Mức Độ Ưu Tiên -->
                                 <div class="form-group mb-3 col-12 col-md-6">
                                     <label for="priority" class="form-label">Mức Độ Ưu Tiên</label>
@@ -778,7 +778,7 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-        
+
                                 <!-- Trường Địa Điểm -->
                                 <div class="form-group mb-3 col-12 col-md-6">
                                     <label for="location" class="form-label">Địa Điểm:</label>
@@ -787,7 +787,7 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-        
+
                                 <!-- Ngày Bắt Đầu -->
                                 <div class="form-group mb-3 col-12 col-md-6" id="date-start-field">
                                     <label for="date_start" class="form-label">Ngày Bắt Đầu</label>
@@ -796,7 +796,7 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-        
+
                                 <!-- Ngày Kết Thúc -->
                                 <div class="form-group mb-3 col-12 col-md-6" id="date-end-field">
                                     <label for="date_end" class="form-label">Ngày Kết Thúc</label>
@@ -805,7 +805,7 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-        
+
                                 <div class="form-group mb-3 col-12 col-md-6 position-relative" id="exam-date-time" style="display: none;">
                                     <div class="mb-3">
                                         <label for="date" class="form-label">Ngày</label>
@@ -827,7 +827,7 @@
                                         @enderror
                                     </div>
                                 </div>
-        
+
                                 <!-- Mô Tả -->
                                 <div class="form-group mb-3">
                                     <label for="description" class="form-label">Mô Tả</label>
@@ -838,7 +838,7 @@
                                 </div>
                             </div>
                         </div>
-        
+
                         <div class="col-12 col-md-6">
                             <!-- Trường riêng cho lịch học -->
                             <div id="study-fields" class="mb-3" style="display: none;">
@@ -849,7 +849,7 @@
                                 @error('learn_course_id')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
-        
+
                                 <label for="learning_id" class="form-label mt-2">Môn học</label>
                                 <select name="learning_id" id="learning_id" class="form-control @error('learning_id') is-invalid @enderror">
                                     <option value="">-- Vui lòng chọn khóa học trước --</option>
@@ -857,7 +857,7 @@
                                 @error('learning_id')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
-        
+
                                 <label for="learn_teacher_id" class="form-label mt-2">Giáo viên</label>
                                 <select name="learn_teacher_id" id="learn_teacher_id" class="form-control @error('learn_teacher_id') is-invalid @enderror">
                                     <option value="">-- Vui lòng chọn thời gian trước --</option>
@@ -865,7 +865,7 @@
                                 @error('learn_teacher_id')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
-        
+
                                 <label for="learn_student_id" class="form-label mt-2">Học viên</label>
                                 <select name="learn_student_id[]" id="learn_student_id_select" class="w-full form-control @error('learn_student_id') is-invalid @enderror" multiple>
                                     <option value="">-- Vui lòng chọn khóa học, thời gian của lịch trước --</option>
@@ -874,7 +874,7 @@
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                                 <div id="alert-message" class="hidden alert alert-danger"></div>
-        
+
                                 <div class="mb-3">
                                     <label for="stadium_id" class="form-label">Sân tập</label>
                                     <select name="stadium_id" id="stadium_id" class="form-select">
@@ -893,7 +893,7 @@
                                     </select>
                                 </div>
                             </div>
-        
+
                             <!-- Trường riêng cho lịch thi -->
                             <div id="exam-fields" class="mb-3" style="display: none;">
                                 <div class="form-group mb-3">
@@ -907,7 +907,7 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-        
+
                                 <div class="form-group mb-3">
                                     <label for="exam_fee" class="form-label">Lệ phí thi</label>
                                     <input type="text" name="exam_fee" id="exam_fee" class="form-control currency-input @error('exam_fee') is-invalid @enderror"/>
@@ -931,7 +931,7 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-        
+
                                 <div class="form-group mb-3">
                                     <label for="exam_id" class="form-label">Môn thi</label>
                                     <select name="exam_id[]" id="exam_id" class="form-control @error('exam_id') is-invalid @enderror" multiple>
@@ -941,7 +941,7 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-        
+
                                 <div class="form-group mb-3">
                                     <label for="exam_teacher_id" class="form-label">Giáo viên</label>
                                     <select name="exam_teacher_id" id="exam_teacher_id" class="form-control @error('exam_teacher_id') is-invalid @enderror">
@@ -951,7 +951,7 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-        
+
                                 <div class="form-group mb-3">
                                     <label for="exam_student_id" class="form-label">Học viên</label>
                                     <select name="exam_student_id[]" id="exam_student_id_select" class="form-control @error('exam_student_id') is-invalid @enderror" multiple>
@@ -964,7 +964,7 @@
                                 <div id="alert-message" class="hidden alert alert-danger"></div>
 
                                 <div id="student-inputs" class="mb-3 space-y-4"></div>
-        
+
                                 <div class="mb-3">
                                     <label for="exam_schedule_id" class="form-label">Sân thi</label>
                                     <select name="exam_schedule_id" id="exam_schedule_id" class="form-select">
@@ -1132,9 +1132,9 @@
         const courseId = button.dataset.courseId;
         const modal = new bootstrap.Modal(document.getElementById('studyDetailsModal'));
         const content = document.getElementById('study-details-content');
-    
+
         content.innerHTML = '<p>Đang tải dữ liệu...</p>';
-    
+
         fetch(`/students/${studentId}/study-details/${courseId}`)
             .then(response => response.json())
             .then(data => {
@@ -1144,23 +1144,23 @@
                 content.innerHTML = '<p class="text-danger">Lỗi tải dữ liệu.</p>';
                 console.error(error);
             });
-    
+
         modal.show();
     }
-    
+
     function renderStudyDetails(groups) {
         const container = document.getElementById('study-details-content');
         container.innerHTML = '';
-    
+
         if (Object.keys(groups).length === 0) {
             container.innerHTML = '<p>Không có dữ liệu lịch học.</p>';
             return;
         }
-    
+
         Object.values(groups).forEach(group => {
             const groupEl = document.createElement('div');
             groupEl.classList.add('mb-4');
-    
+
             groupEl.innerHTML = `
                 <h5>${group.learning_field_name || 'Chưa xác định'}</h5>
                 <p><strong>Tổng giờ:</strong> ${group.total_hours} giờ | <strong>Tổng km:</strong> ${group.total_km} km</p>
@@ -1191,7 +1191,7 @@
                     </tbody>
                 </table>
             `;
-    
+
             container.appendChild(groupEl);
         });
     }
@@ -1223,7 +1223,7 @@
 
 <!-- Js của Modal add cardID -->
 <script>
-    function setStudentId(studentId,studentName,studentCode) {            
+    function setStudentId(studentId,studentName,studentCode) {
         document.getElementById("student_id").value = studentId;
         document.getElementById("updateCardLabel").innerText = `Cập nhật mã thẻ ${studentName} - ${studentCode}`;
     }
@@ -1290,18 +1290,18 @@
             .catch(error => console.error("Lỗi khi lấy thông tin học viên:", error));
     }
 </script>
-    
+
 @endsection
 @section('js')
     <script>
-        $(document).ready(function() {   
+        $(document).ready(function() {
             $('#name_student').select2({
                 placeholder: "-- Chọn học viên --",
                 allowClear: true,
             });
         });
     </script>
-    
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             let isModalActive = false;
@@ -1317,20 +1317,20 @@
                 });
             });
             const buttons = document.querySelectorAll('.toggle-detail');
-        
+
             buttons.forEach(button => {
                 button.addEventListener('click', function (e) {
                     e.stopPropagation();
-        
+
                     const studentId = this.getAttribute('data-student-id');
                     const currentDetailRow = document.getElementById('details-' + studentId);
                     const currentMainRow = document.querySelector(`.student-main-row[data-student-id="${studentId}"]`);
-        
+
                     const allDetailRows = document.querySelectorAll('.student-detail-row');
                     const allMainRows = document.querySelectorAll('.student-main-row');
-        
+
                     const isOpen = currentDetailRow.classList.contains('show');
-        
+
                     if (!isOpen) {
                         // Đóng tất cả các chi tiết
                         allDetailRows.forEach(row => {
@@ -1355,7 +1355,7 @@
                     }
                 });
             });
-        
+
             document.addEventListener('click', function (e) {
                 if (isModalActive) return;
                 const isInsideToggle = e.target.closest('.toggle-detail');
