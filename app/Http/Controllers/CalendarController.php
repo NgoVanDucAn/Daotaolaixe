@@ -186,73 +186,67 @@ class CalendarController extends Controller
         $teachers = User::Role('instructor')->with('roles')->get();
         $studentAlls = Student::where('is_student', '=', 1)->get();
         $statusConfig = $this->getCalendarStatusConfig($type);
+
+        // ---- Eager-load quan hệ cần thiết
         $baseRelations = [
             'users',
             'learningField',
             'examField',
             'stadium:id,location,google_maps_url',
+
+            // Cặp course_student + student + course
             'calendarStudents.courseStudent.course',
             'calendarStudents.courseStudent.student',
         ];
 
+        // Nếu là lịch thi thì cần cả các môn thi theo học viên trong lịch
         if ($type === 'exam') {
-            $baseRelations[] = 'calendarStudents.examFields';
+            $baseRelations[] = 'calendarStudents.examFields'; // -> pivot: exam_status/remarks/attempt_number
         }
 
+        // Để lấy kết quả học (giờ, km…) theo course_student_id
+        $baseRelations[] = 'calendarStudents.courseStudent.studentStatuses';
+
         $query = Calendar::with($baseRelations)
-        ->where('type', $type)
-        ->where('level', $level_filter);
+            ->where('type', $type)
+            ->where('level', $level_filter);
 
         if ($type === 'exam' && $request->filled('calendar_id')) {
-            // dùng whereKey để lọc theo cột id (primary key)
             $query->whereKey((int) $request->calendar_id);
         }
 
-        $query->when($request->filled('stadium_id'), function ($q) use ($request, $type) {
-            if ($type == 'study') {
-                $q->where('stadium_id', $request->stadium_id);
-            } elseif ($type == 'exam') {
-                $q->where('stadium_id', $request->stadium_id);
-            }
+        $query->when($request->filled('stadium_id'), function ($q) use ($request) {
+            $q->where('stadium_id', $request->stadium_id);
         });
 
         $query->when($request->filled('student_id'), function ($q) use ($request) {
-            $q->whereHas('calendarStudents.courseStudent.student', function ($s) use ($request) {
-                $s->where('id', $request->student_id);
-            });
+            $q->whereHas('calendarStudents.courseStudent.student', fn($s) =>
+            $s->where('id', $request->student_id)
+            );
         });
 
         $query->when($request->filled('student_name'), function ($q) use ($request) {
-            $q->whereHas('calendarStudents.courseStudent.student', function ($s) use ($request) {
-                $s->where('name', 'like', '%' . $request->student_name . '%');
-            });
+            $q->whereHas('calendarStudents.courseStudent.student', fn($s) =>
+            $s->where('name', 'like', '%'.$request->student_name.'%')
+            );
         });
 
-        $dateBreadscrum = '';
-        // Chuẩn hoá ngày
+        // --- Lọc ngày/ca như bạn đang có (giữ nguyên) ---
         $start = $request->filled('start_date') ? Carbon::parse($request->start_date)->startOfDay() : null;
         $end   = $request->filled('end_date')   ? Carbon::parse($request->end_date)->endOfDay()   : null;
 
-        // Lọc NGÀY
         if ($start && $end) {
             $query->whereBetween('date_start', [$start, $end]);
         } elseif ($start || $end) {
-            // Chỉ 1 đầu mút: lọc đúng ngày đó
             $query->whereDate('date_start', ($start ?? $end)->toDateString());
         }
 
-        // Lọc BUỔI — luôn áp dụng nếu có truyền time (1=sáng, 2=chiều, 3=cả ngày)
         if ($request->filled('time')) {
             $time = (int) $request->time;
-            if (in_array($time, [1, 2, 3], true)) {
+            if (in_array($time, [1,2,3], true)) {
                 $query->where('time', $time);
             }
-        } else {
-            // Không có time: giữ nguyên, để trả về tất cả buổi
-        }
-
-        // Nếu KHÔNG có start/end nhưng có time_filter preset (7 ngày, 30 ngày,…)
-        if (!$request->filled('start_date') && !$request->filled('end_date') && $request->filled('time_filter')) {
+        } elseif ($request->filled('time_filter')) {
             $today = Carbon::now();
             $map = [
                 '90'  => [$today->copy()->subDays(90), $today],
@@ -267,27 +261,66 @@ class CalendarController extends Controller
             }
         }
 
-        $timeOrder = [
-            1 => 1,
-            2 => 2,
-            3 => 3,
-        ];
+        $timeOrder = [1=>1,2=>2,3=>3];
 
         $calendars = $query->orderBy('date_start', 'desc')->get();
-        $totalStudentCount = $calendars
-        ->flatMap->calendarStudents
-        ->pluck('course_student_id')
-        ->unique()
-        ->count();
+
+        // ======= TÍNH KẾT QUẢ THEO HỌC VIÊN TRONG TỪNG LỊCH =======
+        foreach ($calendars as $calendar) {
+            foreach ($calendar->calendarStudents as $calStu) {
+                // ĐƯỜNG DẪN KHÓA HỌC/HỌC VIÊN (sẵn)
+                $cs = $calStu->courseStudent;
+
+                if ($type === 'exam') {
+                    // Các hàng trong bảng nối calendar_student_exam_field
+                    // $calStu->examFields là tập các môn thi của học viên trong lịch này
+                    $statuses = collect($calStu->examFields)->pluck('pivot.exam_status')->filter(fn($v) => $v !== null);
+
+                    if ($statuses->isEmpty() || $statuses->every(fn($s) => (int)$s === 0)) {
+                        $overall = 0; // chưa có kết quả
+                    } elseif ($statuses->contains(2)) {
+                        $overall = 2; // chỉ cần 1 môn trượt -> trượt
+                    } elseif ($statuses->every(fn($s) => (int)$s === 1)) {
+                        $overall = 1; // tất cả đều đạt -> đạt
+                    } else {
+                        $overall = 0; // còn 0 xen lẫn 1 -> coi là chưa có kết quả
+                    }
+
+                    // Gắn cho từng học viên trong lịch
+                    $calStu->overall_exam_status = $overall;
+                } elseif ($type === 'study') {
+                    // Lấy record student_status tương ứng môn học của lịch (1 môn/học phần)
+                    $learningFieldId = $calendar->learning_field_id;
+                    $studyStatus = optional($cs->studentStatuses)
+                        ->firstWhere('learning_field_id', $learningFieldId);
+
+                    // Gắn để view dùng (giờ/km…)
+                    $calStu->study_status = $studyStatus; // có thể null nếu chưa khởi tạo
+                }
+            }
+
+            // Để tiện render badge chung ở cột “Kết quả” (rowspan),
+            // ta gom unique overall của **tất cả học viên** trong lịch này.
+            if ($type === 'exam') {
+                $calendar->overall_statuses = $calendar->calendarStudents
+                    ->pluck('overall_exam_status')
+                    ->filter(fn($v) => $v !== null)
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
+        }
+        // ==========================================================
+
+        // (Giữ nguyên phần sort & group như bạn đang dùng)
+        $totalStudentCount = $calendars->flatMap->calendarStudents->pluck('course_student_id')->unique()->count();
 
         if ($type === 'exam') {
             foreach ($calendars as $calendar) {
-                $calendar->exam_field_data = $calendar->exam_fields_of_calendar->map(function ($item) {
-                    return [
-                        'id' => $item->id,
-                        'name' => $item->name,
-                    ];
-                })->toArray();
+                $calendar->exam_field_data = $calendar->exam_fields_of_calendar->map(fn($item) => [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                ])->toArray();
             }
             $calendars = $calendars->sortBy([
                 fn($a, $b) => $b->date_start <=> $a->date_start,
@@ -335,33 +368,34 @@ class CalendarController extends Controller
                             ->unique()
                             ->count(),
                     ];
-                } else {
-                    return [
-                        'calendars_by_stadium' => $itemsOfDay
-                            ->groupBy(fn($c) => $c->stadium_id)
-                            ->sortKeys()
-                            ->map(function ($itemsOfStadium) {
-                                return [
-                                    'stadium' => $itemsOfStadium->first()->stadium,
-                                    'calendars' => $itemsOfStadium,
-                                    'student_count' => $itemsOfStadium
-                                        ->flatMap->calendarStudents
-                                        ->pluck('course_student_id')
-                                        ->unique()
-                                        ->count(),
-                                ];
-                            }),
-                        'count' => $itemsOfDay->count(),
-                        'student_count' => $itemsOfDay
-                            ->flatMap->calendarStudents
-                            ->pluck('course_student_id')
-                            ->unique()
-                            ->count(),
-                    ];
                 }
+                // study/work/meeting/call
+                return [
+                    'calendars_by_stadium' => $itemsOfDay
+                        ->groupBy(fn($c) => $c->stadium_id)
+                        ->sortKeys()
+                        ->map(function ($itemsOfStadium) {
+                            return [
+                                'stadium' => $itemsOfStadium->first()->stadium,
+                                'calendars' => $itemsOfStadium,
+                                'student_count' => $itemsOfStadium
+                                    ->flatMap->calendarStudents
+                                    ->pluck('course_student_id')
+                                    ->unique()
+                                    ->count(),
+                            ];
+                        }),
+                    'count' => $itemsOfDay->count(),
+                    'student_count' => $itemsOfDay
+                        ->flatMap->calendarStudents
+                        ->pluck('course_student_id')
+                        ->unique()
+                        ->count(),
+                ];
             });
 
         $grouped = $grouped->sortKeysDesc();
+
         $perPage = 30;
         $currentPage = $request->input('page', 1);
         $paginatedCalendars = new LengthAwarePaginator(
@@ -401,9 +435,13 @@ class CalendarController extends Controller
             'calendars.call' => 'admin.calendars.call',
             default => 'admin.calendars.index',
         };
-//        dd($paginatedCalendars);
-        return view($viewName, compact('teachers', 'studentAlls', 'paginatedCalendars', 'calendarTypes', 'type', 'statusConfig', 'stadiums', 'dateBreadscrum', 'totalStudentCount'));
+
+        return view($viewName, compact(
+            'teachers','studentAlls','paginatedCalendars','calendarTypes',
+            'type','statusConfig','stadiums','totalStudentCount'
+        ));
     }
+
 
     public function getInforByVehicleType(Request $request)
     {

@@ -810,52 +810,59 @@ class StudentController extends Controller
 
     public function studyDetails(Student $student, $courseId)
     {
-        $studyCalendars = $student->calendars()
-            ->where('type', 'study')
-            ->whereHas('courses', function ($q) use ($courseId) {
-                $q->where('courses.id', $courseId);
-            })
-            ->with(['courses' => function ($q) use ($courseId) {
-                $q->where('courses.id', $courseId);
-            },
-            'learningField:id,name'
-            ])
+        // Lấy bản ghi course_student của học viên trong khóa chỉ định
+        $cs = \App\Models\CourseStudent::where('student_id', $student->id)
+            ->where('course_id', $courseId)
+            ->firstOrFail();
+
+        // Lịch học gắn với course_student này (type = study)
+        $studyCalendars = $cs->calendars()   // <- cần có quan hệ calendars() trong CourseStudent (ở dưới)
+        ->where('type', 'study')
+            ->with(['learningField:id,name'])
             ->orderBy('date_start')
             ->get();
 
-        $cs = $student->courseStudents()->where('course_id', $courseId)->firstOrFail();
+        // Tổng hợp kết quả học theo từng môn từ bảng student_statuses (đã chuyển sang course_student_id)
+        $statuses = \App\Models\StudentStatus::where('course_student_id', $cs->id)
+            ->get()
+            ->keyBy('learning_field_id');
 
-        $statuses = StudentStatus::where('course_student_id', $cs->id)
-            ->get()->keyBy('learning_field_id');
+        // Gom nhóm theo tên môn học (learning_field)
+        $grouped = $studyCalendars
+            ->groupBy(fn ($calendar) => optional($calendar->learningField)->name ?? 'Chưa xác định')
+            ->map(function ($items) use ($statuses) {
+                $first = $items->first();
+                $learningFieldId = $first?->learning_field_id;
+                $statusRow = $learningFieldId ? ($statuses->get($learningFieldId) ?? null) : null;
 
-        $grouped = $studyCalendars->groupBy(fn ($calendar) => optional($calendar->learningField)->name ?? 'Chưa xác định')
-        ->map(function ($items, $fieldName) use ($statuses) {
-            $learningFieldId = $items->first()->learning_field_id;
-            $status = $statuses->get($learningFieldId);
-            return [
-                'learning_field_name' => $fieldName,
-                'total_hours' => $status->hours ?? 0,
-                'total_km' => $status->km ?? 0,
-                'total_night_hours' => $status->night_hours ?? 0,
-                'total_auto_hours' => $status->auto_hours ?? 0,
-                'status' => $status->status ?? null,
-                'items' => $items->map(function ($calendar) {
-                    return [
-                        'calendar_id' => $calendar->id,
-                        'date_start' => $calendar->date_start,
-                        'date_end' => $calendar->date_end,
-                        'hours' => $calendar->pivot->hours,
-                        'km' => $calendar->pivot->km,
-                        'remarks' => $calendar->pivot->remarks,
-                    ];
-                })->values(),
-            ];
-        });
+                return [
+                    'learning_field_name' => optional($first?->learningField)->name ?? 'Chưa xác định',
+                    'total_hours'         => $statusRow->hours        ?? 0,
+                    'total_km'            => $statusRow->km           ?? 0,
+                    'total_night_hours'   => $statusRow->night_hours  ?? 0,
+                    'total_auto_hours'    => $statusRow->auto_hours   ?? 0,
+                    'status'              => $statusRow->status       ?? null,
+                    'items' => $items->map(function ($calendar) {
+                        return [
+                            'calendar_id' => $calendar->id,
+                            'date_start'  => $calendar->date_start,
+                            'date_end'    => $calendar->date_end,
+                            // dữ liệu từ pivot calendar_course_student
+                            'hours'       => $calendar->pivot->hours,
+                            'km'          => $calendar->pivot->km,
+                            'night_hours' => $calendar->pivot->night_hours ?? null,
+                            'auto_hours'  => $calendar->pivot->auto_hours  ?? null,
+                            'remarks'     => $calendar->pivot->remarks,
+                        ];
+                    })->values(),
+                ];
+            });
 
         return response()->json([
             'data' => $grouped,
         ]);
     }
+
 
     public function examDetails(Student $student, $courseId, $examFieldId)
     {
