@@ -743,6 +743,7 @@ class StudentController extends Controller
         $leadSources = LeadSource::all();
         $sales = User::role('salesperson')->with('roles')->get();
         $rankings = Ranking::all();
+
         $courseFees = [];
         $remainingFees = [];
         $totalHours = [];
@@ -770,7 +771,7 @@ class StudentController extends Controller
         foreach ($students as $student) {
             foreach ($student->courseStudents as $cs) {
                 $course = $cs->course;
-                if (!$course || optional($course->ranking)->vehicle_type !== 0) {
+                if (!$course || optional($course->ranking)->vehicle_type !== 1) {
                     continue; // lọc theo mô tô (0). Với ô tô thì đổi 1.
                 }
 

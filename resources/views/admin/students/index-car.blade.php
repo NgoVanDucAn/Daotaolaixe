@@ -29,7 +29,7 @@
 
                     $isRequired = in_array($exam->id, $requiredExamIds);
                     $result = $examResults->firstWhere('exam_field_id', $exam->id);
-                    
+
                     $html .= '<td class="text-center align-middle">';
                     if ($isRequired) {
                         $icon = match($result->status ?? null) {
@@ -66,7 +66,7 @@
             data-bs-toggle="modal"
             data-bs-target="#addStudentModal"
             data-rankings="{{ $rankings }}"
-            type="button" 
+            type="button"
             class="btn"
             style="color: #3b82f6; border: 1px solid #3b82f6; padding: 4px 8px;"
         >
@@ -100,7 +100,7 @@
                             @endforeach
                         </select>
                     </div>
-    
+
                     <div class="col-12 col-sm-6 col-md-3 mb-3">
                         <label class="form-label fw-bold">Tên giáo viên</label>
                         <select name="teacher_id" id="teacher_id" class="form-select select2">
@@ -117,22 +117,22 @@
                     </div>
                     <div class="col-6 col-md-3 mb-3 position-relative">
                         <label class="form-label fw-bold">Ngày ký hợp đồng bắt đầu</label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             placeholder="dd/mm/yyyy"
-                            class="form-control real-date mb-2" 
-                            name="created_from" 
+                            class="form-control real-date mb-2"
+                            name="created_from"
                             autocomplete="off"
                             value="{{ request('created_from') ? \Carbon\Carbon::parse(request('created_from'))->format('d/m/Y') : '' }}"
                         >
                     </div>
                     <div class="col-6 col-md-3 mb-3 position-relative">
                         <label class="form-label fw-bold">Ngày ký hợp đồng kết thúc</label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             placeholder="dd/mm/yyyy"
-                            class="form-control real-date" autocomplete="off" 
-                            name="created_to" 
+                            class="form-control real-date" autocomplete="off"
+                            name="created_to"
                             value="{{ request('created_to') ? \Carbon\Carbon::parse(request('created_to'))->format('d/m/Y') : '' }}"
                         >
                     </div>
@@ -232,7 +232,7 @@
                     </select>
                 </div> --}}
                 <div class="row">
-                    
+
                 </div>
             {{-- </div> --}}
 
@@ -261,8 +261,8 @@
                 $lyThuyetExams = $exams->where('type_label', 'Lý thuyết');
                 $thucHanhExams = $exams->where('type_label', 'Thực hành');
                 $totNghiepExams = $exams->where('type_label', 'Tốt nghiệp');
-                $totalExamColumns = max($lyThuyetExams->count(), 1) 
-                      + max($thucHanhExams->count(), 1) 
+                $totalExamColumns = max($lyThuyetExams->count(), 1)
+                      + max($thucHanhExams->count(), 1)
                       + max($totNghiepExams->count(), 1);
             @endphp
 
@@ -309,7 +309,7 @@
                         @php
                             $courseCount = $student->courses->count();
                         @endphp
-            
+
                         @if($courseCount > 0)
                             @foreach ($student->courseStudents as $course)
                                 <tr class="student-main-row" data-student-id="{{ $student->id }}">
@@ -326,7 +326,7 @@
 
 
 
-                                            
+
                                         </script>
                                         @if ($course->course->id == 99999999)
                                             <a href="{{ route('student.course.action', ['student' => $student->id, 'course' => 99999999]) }}">
@@ -342,7 +342,7 @@
                                         <script>
                                             console.log(111111, @json($course->course->id));
                                             console.log(2222222,@json($student->id));
-                                            
+
                                         </script>
                                             <a href="{{ route('student.course.action', ['student' => $student->id, 'course' => $course->course->id]) }}">
                                                 <span class="badge bg-success">{{ ucfirst($course->course->code) }}</span>
@@ -355,7 +355,7 @@
                                     </td>
                                     <td>
                                         <span class="badge bg-success">
-                                            
+
                                             {{ ucfirst($course->course->ranking->name ?? "") }}
                                         </span>
                                     </td>
@@ -366,7 +366,7 @@
                                             {{ $student->student_code }}
                                     </td> --}}
                                     <td class="text-nowrap text-start">
-                                        <a 
+                                        <a
                                             href="{{ route('student.course.action', ['student' => $student->id, 'course' => $course->course->id]) }}"
                                             style="padding: 2px 12px;"
                                         >
@@ -394,23 +394,22 @@
                                         @if ($student->card_id)
                                             {{ $student->card_id }}
                                         @else
-                                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#updateCardModal" 
+                                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#updateCardModal"
                                                 onclick='setStudentId({{ $student->id }}, {!! json_encode($student->name) !!}, {!! json_encode($student->student_code) !!})'>
                                                 Gán
                                             </button>
                                         @endif
                                     </td>
                                     <td class="text-nowrap">
-                                        @foreach ($teachers as $teacher)
-                                            @if ($teacher->id == $course->course->teacher_id)
-                                                {{ $teacher->name }}
-                                            @endif
-                                        @endforeach
+                                        @php
+                                            $teacher = $teachers->firstWhere('id', $course->teacher_id);
+                                        @endphp
+                                        {{ $teacher?->name ?? '--' }}
                                     </td>
                                     {{-- <td>
                                         @if ($student->status == 'active')
                                             <span class="badge bg-success">Đang học</span>
-                                        @else 
+                                        @else
                                             @if ($student->status == 'inactive')
                                                 <span class="badge bg-success">Nghỉ</span>
                                             @endif
@@ -419,11 +418,29 @@
                                     {{-- <td>
                                         {{ $student->created_at->format('d/m/Y') }}
                                     </td> --}}
-                                            <td>0 new</td>
-                                            <td>0 new</td>
-                                            <td>0 new</td>
+                                    {{-- ===== TÌNH TRẠNG THI (LT / TH / TN) từ $examsResults ===== --}}
+                                    @php
+                                        $examResultsAll = $examsResults[$student->id][$course->course->id] ?? collect();
+                                        $lt = optional($examResultsAll->where('type_exam', 1)->sortBy('created_at')->last())->status;
+                                        $th = optional($examResultsAll->where('type_exam', 2)->sortBy('created_at')->last())->status;
+                                        $tn = optional($examResultsAll->where('type_exam', 3)->sortBy('created_at')->last())->status;
 
-                                            <td>
+                                        // 0: chờ / chưa có -> đồng hồ; 1: đỗ -> check; 2: trượt -> x đỏ (tùy schema của bạn)
+                                        $icon = function($st) {
+                                            if (is_null($st)) return '<i class="fa-solid fa-hourglass-start text-warning"></i>';
+                                            return match((int)$st) {
+                                                1 => '<i class="fa-solid fa-square-check text-success"></i>',
+                                                2 => '<i class="fa-solid fa-square-xmark text-danger"></i>',
+                                                default => '<i class="fa-solid fa-hourglass-start text-warning"></i>',
+                                            };
+                                        };
+                                    @endphp
+                                    <td class="text-center align-middle">{!! $icon($lt) !!}</td>
+                                    <td class="text-center align-middle">{!! $icon($th) !!}</td>
+                                    <td class="text-center align-middle">{!! $icon($tn) !!}</td>
+
+
+                                    <td>
                                                 <button class="btn btn-sm btn-info"
                                                     data-student-id="{{ $student->id }}"
                                                     data-course-id="{{ $course->course->id }}"
@@ -434,46 +451,45 @@
                                             <td>{{ $totalKm[$student->id][$course->course->id] ?? 0 }}/{{ $course->course->km ?? '-' }}</td>
                                             <td>0 new</td>
                                             <td>0 new</td>
-                                            <td>
-                                                @if(isset($remainingFees[$student->id][$course->course->id]))    
-                                                    {{ optional($course->pivot)->tuition_fee ? number_format($course->pivot->tuition_fee, 0, ',', '.') : 0 }} VND</td>
-                                                @else
-                                                    0 VND
-                                                @endif
-                                            </td>
-                                            <td>
-                                                @if(isset($remainingFees[$student->id][$course->course->id]))    
-                                                    {{ number_format($courseFees[$student->id][$course->course->id], 0, ',', '.') }} VND</td>
-                                                @else
-                                                    0 VND
-                                                @endif
-                                            <td>
-                                                @if(isset($remainingFees[$student->id][$course->course->id]))
-                                                    
-                                                    <span class="badge bg-danger">
-                                                        {{ number_format($remainingFees[$student->id][$course->course->id], 0, ',', '.') }} VND
-                                                    </span>
-                                                @else
-                                                    <span class="badge bg-success">
-                                                        0 VND
-                                                    </span>
-                                                @endif
-                                            </td>
-                                            <td>
+                                    <td>
+                                        @if(isset($remainingFees[$student->id][$course->course->id]))
+                                            {{ number_format($course->tuition_fee ?? 0, 0, ',', '.') }} VND
+                                        @else
+                                            0 VND
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if(isset($remainingFees[$student->id][$course->course->id]))
+                                            {{ number_format($courseFees[$student->id][$course->course->id] ?? 0, 0, ',', '.') }} VND
+                                        @else
+                                            0 VND
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if(isset($remainingFees[$student->id][$course->course->id]))
+                                            <span class="badge {{ ($remainingFees[$student->id][$course->course->id] ?? 0) > 0 ? 'bg-danger' : 'bg-success' }}">
+                                                {{ number_format($remainingFees[$student->id][$course->course->id] ?? 0, 0, ',', '.') }} VND
+                                            </span>
+                                        @else
+                                            <span class="badge bg-success">0 VND</span>
+                                        @endif
+                                    </td>
+
+                                    <td>
                                                 <span class="badge {{ $course->course->status == 1 ? 'bg-success' : ($course->course->status == 2 ? 'bg-warning' : ($course->course->pivot->status == 3 ? 'bg-primary' : 'bg-secondary')) }}">
                                                 {{ $course->course->status == 0 ? 'Chưa học' : ($course->course->status == 1 ? 'Đang học' : ($course->course->pivot->status == 2 ? 'Bỏ học' : 'Đã tốt nghiệp')) }}
                                                 </span>
-                                            </td>   
+                                            </td>
                                     <td class="text-nowrap">
-                                        <a 
+                                        <a
                                             href="{{ route('student.course.action', ['student' => $student->id, 'course' =>  $course->course->id]) }}"
-                                            class="btn btn-sm btn-info m-1" 
+                                            class="btn btn-sm btn-info m-1"
                                             style="padding: 2px 12px;"
                                         >
                                             <i class="mdi mdi-eye-outline"></i>
                                         </a>
-                                        <a 
-                                            href="{{ route('student.course.edit', ['student' => $student->id, 'course' =>  $course->course->id]) }}" 
+                                        <a
+                                            href="{{ route('student.course.edit', ['student' => $student->id, 'course' =>  $course->course->id]) }}"
                                             class="btn btn-sm btn-warning m-1"
                                         >
                                             <i class="fa-solid fa-user-pen"></i>
@@ -512,7 +528,7 @@
                             </td> --}}
                             <td class="text-nowrap text-start">
                                 {{-- <a  style="font-weight: 600; color: {{ $firstCourse ? '#4C9AFF' : '#495057' }};" href="{{ $firstCourse ? route('student.course.action', ['student' => $student->id, 'course' => $firstCourse->id]) : '#' }}" class="toggle-detail"> --}}
-                                    <a 
+                                    <a
                                         href="{{ route('students.show', $student->id) }}"
                                         style="padding: 2px 12px;"
                                     >
@@ -539,7 +555,7 @@
                                 @if ($student->card_id)
                                     {{ $student->card_id }}
                                 @else
-                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#updateCardModal" 
+                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#updateCardModal"
                                         onclick='setStudentId({{ $student->id }}, {!! json_encode($student->name) !!}, {!! json_encode($student->student_code) !!})'>
                                         Gán
                                     </button>
@@ -553,7 +569,7 @@
                             {{-- <td>
                                 @if ($student->status == 'active')
                                     <span class="badge bg-success">Đang học</span>
-                                @else 
+                                @else
                                     @if ($student->status == 'inactive')
                                         <span class="badge bg-success">Nghỉ</span>
                                     @endif
@@ -568,7 +584,7 @@
                                         @php
                                         $requiredExamIds = $courseAlls->firstWhere('id', $course->id)?->examFields->pluck('id')->toArray() ?? [];
                                         $examResults = $examsResults[$student->id][$course->id] ?? collect();
-                                    @endphp
+                                        @endphp
                                     <td>0 new</td>
                                     <td>0 new</td>
                                     <td>0 new</td>
@@ -584,21 +600,21 @@
                                     <td>0 new</td>
                                     <td>0 new</td>
                                     <td>
-                                        @if(isset($remainingFees[$student->id][$course->id]))    
+                                        @if(isset($remainingFees[$student->id][$course->id]))
                                             {{ $course->pivot->tuition_fee ? number_format($course->pivot->tuition_fee, 0, ',', '.') : 0 }} VND</td>
                                         @else
                                             0 VND
                                         @endif
                                     </td>
                                     <td>
-                                        @if(isset($remainingFees[$student->id][$course->id]))    
+                                        @if(isset($remainingFees[$student->id][$course->id]))
                                             {{ number_format($courseFees[$student->id][$course->id], 0, ',', '.') }} VND</td>
                                         @else
                                             0 VND
                                         @endif
                                     <td>
                                         @if(isset($remainingFees[$student->id][$course->id]))
-                                            
+
                                             <span class="badge bg-danger">
                                                 {{ number_format($remainingFees[$student->id][$course->id], 0, ',', '.') }} VND
                                             </span>
@@ -612,7 +628,7 @@
                                         <span class="badge {{ $course->pivot->status == 1 ? 'bg-success' : ($course->pivot->status == 2 ? 'bg-warning' : ($course->pivot->status == 3 ? 'bg-primary' : 'bg-secondary')) }}">
                                         {{ $course->pivot->status == 0 ? 'Chưa học' : ($course->pivot->status == 1 ? 'Đang học' : ($course->pivot->status == 2 ? 'Bỏ học' : 'Đã tốt nghiệp')) }}
                                         </span>
-                                    </td>   
+                                    </td>
                                     @endif
                                 @endforeach
                             @else
@@ -631,9 +647,9 @@
                                 >
                                     <i class="fa-solid fa-plus"></i>
                                 </a>
-                                {{-- <a 
-                                    href="{{ route('students.show', $student->id) }}"    
-                                    class="btn btn-sm btn-info m-1" 
+                                {{-- <a
+                                    href="{{ route('students.show', $student->id) }}"
+                                    class="btn btn-sm btn-info m-1"
                                     style="padding: 2px 12px;"
                                 >
                                     <i class="mdi mdi-eye-outline"></i>
@@ -678,10 +694,10 @@
                                 </div>
                                 <div class="form-group col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 col-xxl-2 position-relative">
                                     <label for="contract_date" class="form-label">Ngày ký hợp đồng</label>
-                                    <input 
+                                    <input
                                         type="text"
                                         placeholder="dd/mm/yyyy"
-                                        name="contract_date" 
+                                        name="contract_date"
                                         class="form-control real-date" autocomplete="off"
                                     >
                                 </div>
@@ -694,10 +710,10 @@
                                 </div>
                                 <div class="form-group col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 col-xxl-2 position-relative">
                                     <label for="health_check_date" class="form-label">Ngày khám sức khỏe</label>
-                                    <input 
+                                    <input
                                         type="text"
                                         placeholder="dd/mm/yyyy"
-                                        name="health_check_date" 
+                                        name="health_check_date"
                                         class="form-control real-date" autocomplete="off"
                                     >
                                 </div>
@@ -894,7 +910,7 @@
                                             <div class="invalid-feedback d-block">{{ $message }}</div>
                                         @enderror
                                     </div>
-            
+
                                     <!-- Trường Tên Lịch -->
                                     <div class="form-group mb-3">
                                         <label for="name" class="form-label">Tên Lịch</label>
@@ -903,7 +919,7 @@
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
-            
+
                                     <!-- Mức Độ Ưu Tiên -->
                                     <div class="form-group mb-3 col-12 col-md-6">
                                         <label for="priority" class="form-label">Mức Độ Ưu Tiên</label>
@@ -917,7 +933,7 @@
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
-            
+
                                     <!-- Trường Địa Điểm -->
                                     <div class="form-group mb-3 col-12 col-md-6">
                                         <label for="location" class="form-label">Địa Điểm:</label>
@@ -926,7 +942,7 @@
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
-            
+
                                     <!-- Ngày Bắt Đầu -->
                                     <div class="form-group mb-3 col-12 col-md-6" id="date-start-field">
                                         <label for="date_start" class="form-label">Ngày Bắt Đầu</label>
@@ -935,7 +951,7 @@
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
-            
+
                                     <!-- Ngày Kết Thúc -->
                                     <div class="form-group mb-3 col-12 col-md-6" id="date-end-field">
                                         <label for="date_end" class="form-label">Ngày Kết Thúc</label>
@@ -944,18 +960,18 @@
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
-            
+
                                     <div class="form-group mb-3 col-12 col-md-6 position-relative" id="exam-date-time" style="display: none;">
                                         <div class="mb-3">
                                             <label for="date" class="form-label">Ngày</label>
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 placeholder="dd/mm/yyyy"
-                                                name="date" 
-                                                id="date" 
+                                                name="date"
+                                                id="date"
                                                 autocomplete="off"
-                                                class="form-control real-date 
-                                                @error('date') is-invalid @enderror" 
+                                                class="form-control real-date
+                                                @error('date') is-invalid @enderror"
                                             />
                                             @error('date')
                                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -974,7 +990,7 @@
                                             @enderror
                                         </div>
                                     </div>
-            
+
                                     <!-- Mô Tả -->
                                     <div class="form-group mb-3">
                                         <label for="description" class="form-label">Mô Tả</label>
@@ -985,7 +1001,7 @@
                                     </div>
                                 </div>
                             </div>
-            
+
                             <div class="col-12 col-md-6">
                                 <!-- Trường riêng cho lịch học -->
                                 <div id="study-fields" class="mb-3" style="display: none;">
@@ -996,7 +1012,7 @@
                                     @error('learn_course_id')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
-            
+
                                     <label for="learning_id" class="form-label mt-2">Môn học</label>
                                     <select name="learning_id" id="learning_id" class="form-control @error('learning_id') is-invalid @enderror">
                                         <option value="">-- Vui lòng chọn khóa học trước --</option>
@@ -1004,7 +1020,7 @@
                                     @error('learning_id')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
-            
+
                                     <label for="learn_teacher_id" class="form-label mt-2">Giáo viên</label>
                                     <select name="learn_teacher_id" id="learn_teacher_id" class="form-control @error('learn_teacher_id') is-invalid @enderror">
                                         <option value="">-- Vui lòng chọn thời gian trước --</option>
@@ -1012,7 +1028,7 @@
                                     @error('learn_teacher_id')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
-            
+
                                     <label for="learn_student_id" class="form-label mt-2">Học viên</label>
                                     <select name="learn_student_id[]" id="learn_student_id_select" class="w-full form-control @error('learn_student_id') is-invalid @enderror" multiple>
                                         <option value="">-- Vui lòng chọn khóa học, thời gian của lịch trước --</option>
@@ -1021,7 +1037,7 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                     <div id="alert-message" class="hidden alert alert-danger"></div>
-            
+
                                     <div class="mb-3">
                                         <label for="stadium_id" class="form-label">Sân tập</label>
                                         <select name="stadium_id" id="stadium_id" class="form-select">
@@ -1040,7 +1056,7 @@
                                         </select>
                                     </div>
                                 </div>
-            
+
                                 <!-- Trường riêng cho lịch thi -->
                                 <div id="exam-fields" class="mb-3" style="display: none;">
                                     <div class="form-group mb-3">
@@ -1054,7 +1070,7 @@
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
-            
+
                                     <div class="form-group mb-3">
                                         <label for="exam_fee" class="form-label">Lệ phí thi</label>
                                         <input type="text" name="exam_fee" id="exam_fee" class="form-control currency-input @error('exam_fee') is-invalid @enderror"/>
@@ -1078,7 +1094,7 @@
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
-            
+
                                     <div class="form-group mb-3">
                                         <label for="exam_id" class="form-label">Môn thi</label>
                                         <select name="exam_id[]" id="exam_id" class="form-control @error('exam_id') is-invalid @enderror" multiple>
@@ -1088,7 +1104,7 @@
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
-            
+
                                     <div class="form-group mb-3">
                                         <label for="exam_teacher_id" class="form-label">Giáo viên</label>
                                         <select name="exam_teacher_id" id="exam_teacher_id" class="form-control @error('exam_teacher_id') is-invalid @enderror">
@@ -1098,7 +1114,7 @@
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
-            
+
                                     <div class="form-group mb-3">
                                         <label for="exam_student_id" class="form-label">Học viên</label>
                                         <select name="exam_student_id[]" id="exam_student_id_select" class="form-control @error('exam_student_id') is-invalid @enderror" multiple>
@@ -1111,7 +1127,7 @@
                                     <div id="alert-message" class="hidden alert alert-danger"></div>
 
                                     <div id="student-inputs" class="mb-3 space-y-4"></div>
-            
+
                                     <div class="mb-3">
                                         <label for="exam_schedule_id" class="form-label">Sân thi</label>
                                         <select name="exam_schedule_id" id="exam_schedule_id" class="form-select">
@@ -1239,7 +1255,7 @@
                 return new bootstrap.Tooltip(tooltipTriggerEl)
             });
         });
-    </script>    
+    </script>
 
     <!-- Js của Modal show details of exam -->
     <script>
@@ -1289,9 +1305,9 @@
             const courseId = button.dataset.courseId;
             const modal = new bootstrap.Modal(document.getElementById('studyDetailsModal'));
             const content = document.getElementById('study-details-content');
-        
+
             content.innerHTML = '<p>Đang tải dữ liệu...</p>';
-        
+
             fetch(`/students/${studentId}/study-details/${courseId}`)
                 .then(response => response.json())
                 .then(data => {
@@ -1301,23 +1317,23 @@
                     content.innerHTML = '<p class="text-danger">Lỗi tải dữ liệu.</p>';
                     console.error(error);
                 });
-        
+
             modal.show();
         }
-        
+
         function renderStudyDetails(groups) {
             const container = document.getElementById('study-details-content');
             container.innerHTML = '';
-        
+
             if (Object.keys(groups).length === 0) {
                 container.innerHTML = '<p>Không có dữ liệu lịch học.</p>';
                 return;
             }
-        
+
             Object.values(groups).forEach(group => {
                 const groupEl = document.createElement('div');
                 groupEl.classList.add('mb-4');
-        
+
                 groupEl.innerHTML = `
                     <h5>${group.learning_field_name || 'Chưa xác định'}</h5>
                     <p><strong>Tổng giờ:</strong> ${group.total_hours} giờ | <strong>Tổng km:</strong> ${group.total_km} km</p>
@@ -1348,7 +1364,7 @@
                         </tbody>
                     </table>
                 `;
-        
+
                 container.appendChild(groupEl);
             });
         }
@@ -1380,7 +1396,7 @@
 
     <!-- Js của Modal add cardID -->
     <script>
-        function setStudentId(studentId,studentName,studentCode) {            
+        function setStudentId(studentId,studentName,studentCode) {
             document.getElementById("student_id").value = studentId;
             document.getElementById("updateCardLabel").innerText = `Cập nhật mã thẻ ${studentName} - ${studentCode}`;
         }
@@ -1447,11 +1463,11 @@
                 .catch(error => console.error("Lỗi khi lấy thông tin học viên:", error));
         }
     </script>
-    
+
 @endsection
 @section('js')
 <script>
-    $(document).ready(function() {   
+    $(document).ready(function() {
        $('#add_student_id').select2({
            placeholder: "-- Chọn học viên --",
            allowClear: true,
@@ -1525,7 +1541,7 @@
             $('#student_id').val(null).trigger('change');
         }
     });
-    
+
     function formatDate(item){
         const date = new Date(item);
         const day = String(date.getDate()).padStart(2, '0');
@@ -1535,13 +1551,13 @@
         return `${day}/${month}/${year}`;
     }
 
-    function checkSelected(ranking) {  
+    function checkSelected(ranking) {
         if (selectedCourse && selectedStudent) {
             if(selectedStudent?.date_of_profile_set) {
                 const value = formatDate(selectedStudent?.date_of_profile_set)
                 contractDateInput.val(value)
             }
-            
+
             if (selectedCourse?.ranking_id == selectedStudent?.ranking_id) {
                 $('#show-noti').text('');
                 return $('input[name="tuition_fee"]').val(formatNumber(selectedStudent?.fee_ranking));
@@ -1566,7 +1582,7 @@
         const rankings = $('#addStudentModal').data('student-ranking'); // lấy từ modal
 
         const rankingOfStudent = rankings.find(item => item.id == studentData.ranking_id)
-        
+
         selectedStudent = {
             ...studentData,
             rankingOfStudent
@@ -1641,20 +1657,20 @@
                 });
             });
             const buttons = document.querySelectorAll('.toggle-detail');
-        
+
             buttons.forEach(button => {
                 button.addEventListener('click', function (e) {
                     e.stopPropagation();
-        
+
                     const studentId = this.getAttribute('data-student-id');
                     const currentDetailRow = document.getElementById('details-' + studentId);
                     const currentMainRow = document.querySelector(`.student-main-row[data-student-id="${studentId}"]`);
-        
+
                     const allDetailRows = document.querySelectorAll('.student-detail-row');
                     const allMainRows = document.querySelectorAll('.student-main-row');
-        
+
                     const isOpen = currentDetailRow.classList.contains('show');
-        
+
                     if (!isOpen) {
                         // Đóng tất cả các chi tiết
                         allDetailRows.forEach(row => {
@@ -1679,7 +1695,7 @@
                     }
                 });
             });
-        
+
             document.addEventListener('click', function (e) {
                 if (isModalActive) return;
                 const isInsideToggle = e.target.closest('.toggle-detail');
@@ -1697,7 +1713,7 @@
             });
         });
     </script>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     {{-- <script>
         document.addEventListener("DOMContentLoaded", function () {

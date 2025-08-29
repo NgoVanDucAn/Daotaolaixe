@@ -216,6 +216,7 @@
                                                 <a
                                                     style="font-weight: 600; color: #4C9AFF"
                                                     href="{{ route($detailRoute, [ 'time' => $time]) }}"
+                                                    title="Xem tất cả lịch theo thời gian này "
                                                 >
                                                     @switch($time)
                                                         @case(1) Buổi sáng @break
@@ -232,13 +233,26 @@
                                             <td>
                                                 <a style="font-weight: 600; color: #4C9AFF"
                                                     href="{{ route($detailRoute, ['start_date' => $date]) }}"
+                                                    title="Xem tất cả lịch tại ngày này"
                                                 >
 
                                                     {{ \Carbon\Carbon::parse($date)->format('d-m-Y') }}
                                                 </a>
                                             </td>
                                             <td>
-                                                {{ $groupStadium['stadium']->location ?? '-' }}
+                                                @php $sid = $groupStadium['stadium']->id ?? null; @endphp
+                                                @if($sid)
+                                                    <a
+                                                        href="{{ route($detailRoute, ['stadium_id' => $sid]) }}"
+                                                        class="fw-semibold"
+                                                        style="color:#4C9AFF"
+                                                        title="Xem tất cả lịch tại sân này"
+                                                    >
+                                                        {{ $groupStadium['stadium']->location }}
+                                                    </a>
+                                                @else
+                                                    -
+                                                @endif
                                             </td>
                                             <td>
                                                 {{ $groupStadium['student_count'] }}
@@ -250,7 +264,7 @@
                                                     <a
                                                         href="{{ route($detailRoute, ['calendar_id' => $cal->id]) }}"
                                                         class="btn btn-sm btn-outline-primary me-1 mb-1">
-                                                        #{{ $cal->id }}
+                                                        Xem chi tiết
                                                     </a>
                                                 @endforeach
                                             </td>

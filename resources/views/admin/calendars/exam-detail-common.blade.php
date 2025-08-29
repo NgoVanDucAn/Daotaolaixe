@@ -14,6 +14,19 @@
 @php
     $firstDate = collect($paginatedCalendars->items())->keys()->first();
 @endphp
+@php
+    function sumHHmm(...$times) {
+        $total = 0;
+        foreach ($times as $t) {
+            if (empty($t)) continue;
+            [$h, $m] = array_pad(explode(':', $t), 2, 0);
+            $total += ((int)$h) * 60 + ((int)$m);
+        }
+        $h = floor($total / 60);
+        $m = $total % 60;
+        return sprintf('%02d:%02d', $h, $m);
+    }
+@endphp
 
 @section('page-action-add-button')
     <div class="d-flex justify-content-between align-items-center">
@@ -278,40 +291,43 @@
                                                     @endforeach
                                                 </td>
 
+                                                {{-- 3 CỘT XE CHIP — MỖI SV 1 DÒNG, KHÔNG ROWSPAN --}}
                                                 @if ($exam == 'sh')
-                                                    <td rowspan="{{ $rowspan }}">new</td>
-                                                    <td rowspan="{{ $rowspan }}">new</td>
-                                                    <td rowspan="{{ $rowspan }}">new</td>
+                                                    <td>{{ $cs->give_chip_hour  ?? '00:00' }}</td>
+                                                    <td>{{ $cs->order_chip_hour ?? '00:00' }}</td>
+                                                    <td>{{ sumHHmm($cs->give_chip_hour, $cs->order_chip_hour) }}</td>
                                                 @endif
+
+
 
                                                 <td rowspan="{{ $rowspan }}">{{ $calendar['description'] ?? '--' }}</td>
                                             @endif
 
-                                            {{-- Hành động theo từng học viên để tránh dùng biến $students “rò rỉ” --}}
+                                            {{-- Hành động theo từng học viên --}}
                                             <td>
                                                 <div class="d-flex gap-2 align-items-center">
-                                                    <a href="#"
-                                                       class="btn btn-sm btn-warning editExamBtn"
-                                                       data-bs-toggle="modal"
-                                                       data-bs-target="#examEditModal"
-                                                       data-calendar-id="{{ $calendar->id }}"
-                                                       data-time="{{ $calendar->time }}"
-                                                       data-lanthi="{{ $attemptNumber }}"
-                                                       data-course-id="{{ $calendar->courses[0]['id'] ?? '' }}"
-                                                       data-course-type="{{ $calendar->exam_course_type }}"
-                                                       data-status="{{ $calendar->status }}"
-                                                       data-description="{{ $calendar->description }}"
-                                                       data-stadium="{{ $calendar->stadium?->id }}"
-                                                       data-students='@json([$cs->id])'
-                                                    >
-                                                        <i class="fa-solid fa-pen-to-square"></i>
-                                                    </a>
+{{--                                                    <a href="#"--}}
+{{--                                                       class="btn btn-sm btn-warning editExamBtn"--}}
+{{--                                                       data-bs-toggle="modal"--}}
+{{--                                                       data-bs-target="#examEditModal"--}}
+{{--                                                       data-calendar-id="{{ $calendar->id }}"--}}
+{{--                                                       data-time="{{ $calendar->time }}"--}}
+{{--                                                       data-lanthi="{{ $attemptNumber }}"--}}
+{{--                                                       data-course-id="{{ $calendar->courses[0]['id'] ?? '' }}"--}}
+{{--                                                       data-course-type="{{ $calendar->exam_course_type }}"--}}
+{{--                                                       data-status="{{ $calendar->status }}"--}}
+{{--                                                       data-description="{{ $calendar->description }}"--}}
+{{--                                                       data-stadium="{{ $calendar->stadium?->id }}"--}}
+{{--                                                       data-students='@json([$cs->id])'--}}
+{{--                                                    >--}}
+{{--                                                        <i class="fa-solid fa-pen-to-square"></i>--}}
+{{--                                                    </a>--}}
 
-                                                    @if (!in_array($calendar['status'], [4, 10]) && now()->lt(\Carbon\Carbon::parse($calendar['date_start'])))
+{{--                                                    @if (!in_array($calendar['status'], [4, 10]) && now()->lt(\Carbon\Carbon::parse($calendar['date_start'])))--}}
                                                         <a href="{{ route('calendars.edit', $calendar['id']) }}" class="btn btn-primary btn-sm">
                                                             <i class="fa-solid fa-user-pen" title="Chỉnh sửa"></i>
                                                         </a>
-                                                    @endif
+{{--                                                    @endif--}}
 
                                                     <button class="btn btn-sm btn-info openResultModalBtn"
                                                             data-calendar-id="{{ $calendar['id'] }}"
@@ -432,6 +448,7 @@
                                                             <span class="text-primary" data-bs-toggle="tooltip" data-bs-placement="top" title="Cần chọn khóa học trước" style="cursor: pointer;">&#x3f;</span>
                                                         </label>
                                                         <div id="exam_id">
+
                                                         </div>
                                                         @error('exam_id')
                                                             <div class="invalid-feedback">{{ $message }}</div>
