@@ -811,7 +811,7 @@ class StudentController extends Controller
     public function studyDetails(Student $student, $courseId)
     {
         // Lấy bản ghi course_student của học viên trong khóa chỉ định
-        $cs = \App\Models\CourseStudent::where('student_id', $student->id)
+        $cs = CourseStudent::where('student_id', $student->id)
             ->where('course_id', $courseId)
             ->firstOrFail();
 
@@ -823,7 +823,7 @@ class StudentController extends Controller
             ->get();
 
         // Tổng hợp kết quả học theo từng môn từ bảng student_statuses (đã chuyển sang course_student_id)
-        $statuses = \App\Models\StudentStatus::where('course_student_id', $cs->id)
+        $statuses = StudentStatus::where('course_student_id', $cs->id)
             ->get()
             ->keyBy('learning_field_id');
 
